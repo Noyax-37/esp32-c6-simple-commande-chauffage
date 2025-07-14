@@ -216,7 +216,7 @@ static void wifi_event_handler(void* arg, esp_event_base_t event_base,
                 ESP_LOGE(TAG, "Web server failed to start after retry");
             }
         }
-        ESP_LOGI(TAG, "Free heap: %d bytes", esp_get_free_heap_size());
+        ESP_LOGI(TAG, "Free heap: %lu bytes", (unsigned long)esp_get_free_heap_size()); // Correction ici
     }
 }
 
