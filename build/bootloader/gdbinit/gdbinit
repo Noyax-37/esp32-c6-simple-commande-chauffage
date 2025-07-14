@@ -1,0 +1,2 @@
+source C:/Users/alain/esp-zigbee-sdk/examples/esp_zigbee_chauffage/build/bootloader/gdbinit/symbols
+source C:/Users/alain/esp-zigbee-sdk/examples/esp_zigbee_chauffage/build/bootloader/gdbinit/connect

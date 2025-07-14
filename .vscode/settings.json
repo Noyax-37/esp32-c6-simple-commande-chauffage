@@ -1,0 +1,19 @@
+{
+  "idf.flashType": "UART",
+  "idf.portWin": "COM6",
+  "idf.openOcdConfigs": [
+    "board/esp32c6-ftdi.cfg"
+  ],
+  "idf.customExtraVars": {
+    "IDF_TARGET": "esp32c6"
+  },
+  "clangd.path": "C:\\Users\\alain\\.espressif\\tools\\esp-clang\\esp-18.1.2_20240912\\esp-clang\\bin\\clangd.exe",
+  "clangd.arguments": [
+    "--background-index",
+    "--query-driver=C:\\Users\\alain\\.espressif\\tools\\riscv32-esp-elf\\esp-14.2.0_20241119\\riscv32-esp-elf\\bin\\riscv32-esp-elf-gcc.exe",
+    "--compile-commands-dir=c:\\Users\\alain\\esp-zigbee-sdk\\examples\\esp_zigbee_customized_devices\\customized_client\\build"
+  ],
+  "files.associations": {
+    "esp_zigbee_core.h": "c"
+  }
+}
