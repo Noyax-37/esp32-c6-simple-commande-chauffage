@@ -17,6 +17,7 @@
 #include "esp_netif.h"
 #include "lwip/err.h"
 #include "lwip/sys.h"
+#include "lwip/ip_addr.h"
 #include "esp_http_server.h"
 
 static const char *TAG = "ESP_ZIGBEE_CHAUFFAGE";
@@ -32,6 +33,7 @@ static uint8_t last_command_sent = 0xFF; // Valeur initiale invalide pour forcer
 // Variables pour gérer les tentatives Wi-Fi
 static int wifi_retry_count = 0;
 static bool wifi_failed = false;
+static bool zb_initialized = false;
 
 // Déclaration préalable de start_webserver pour éviter les erreurs d'ordre
 static httpd_handle_t start_webserver(void);
@@ -199,24 +201,113 @@ static void wifi_event_handler(void* arg, esp_event_base_t event_base,
         } else {
             ESP_LOGW(TAG, "Max Wi-Fi retries reached (%d), starting Zigbee fallback.", WIFI_MAX_RETRIES);
             wifi_failed = true;
-            ESP_ERROR_CHECK(esp_zb_start(true)); // Lancer Zigbee après échec
+            if (!zb_initialized) {
+                esp_zb_cfg_t zb_nwk_cfg = ESP_ZB_ZR_CONFIG();
+                esp_zb_init(&zb_nwk_cfg);
+                zb_initialized = true;
+
+                // Configurer Zigbee ici
+                uint8_t zcl_version = ESP_ZB_ZCL_BASIC_ZCL_VERSION_DEFAULT_VALUE;
+                uint16_t app_version = 1;
+                uint16_t stack_version = 0x0003;
+                uint8_t hw_version = 1;
+                char manu_name[] = ESP_MANUFACTURER_NAME;
+                char model_id[] = ESP_MODEL_IDENTIFIER;
+                esp_zb_attribute_list_t *esp_zb_basic_cluster = esp_zb_zcl_attr_list_create(ESP_ZB_ZCL_CLUSTER_ID_BASIC);
+                esp_zb_basic_cluster_add_attr(esp_zb_basic_cluster, ESP_ZB_ZCL_ATTR_BASIC_ZCL_VERSION_ID, &zcl_version);
+                esp_zb_basic_cluster_add_attr(esp_zb_basic_cluster, ESP_ZB_ZCL_ATTR_BASIC_APPLICATION_VERSION_ID, &app_version);
+                esp_zb_basic_cluster_add_attr(esp_zb_basic_cluster, ESP_ZB_ZCL_ATTR_BASIC_STACK_VERSION_ID, &stack_version);
+                esp_zb_basic_cluster_add_attr(esp_zb_basic_cluster, ESP_ZB_ZCL_ATTR_BASIC_HW_VERSION_ID, &hw_version);
+                esp_zb_basic_cluster_add_attr(esp_zb_basic_cluster, ESP_ZB_ZCL_ATTR_BASIC_MANUFACTURER_NAME_ID, manu_name);
+                esp_zb_basic_cluster_add_attr(esp_zb_basic_cluster, ESP_ZB_ZCL_ATTR_BASIC_MODEL_IDENTIFIER_ID, model_id);
+
+                esp_zb_attribute_list_t *esp_zb_thermostat_client_cluster = esp_zb_zcl_attr_list_create(ESP_ZB_ZCL_CLUSTER_ID_THERMOSTAT);
+                esp_zb_attribute_list_t *esp_zb_on_off_client_cluster = esp_zb_zcl_attr_list_create(ESP_ZB_ZCL_CLUSTER_ID_ON_OFF);
+
+                esp_zb_cluster_list_t *esp_zb_cluster_list = esp_zb_zcl_cluster_list_create();
+                esp_zb_cluster_list_add_basic_cluster(esp_zb_cluster_list, esp_zb_basic_cluster, ESP_ZB_ZCL_CLUSTER_SERVER_ROLE);
+                esp_zb_cluster_list_add_thermostat_cluster(esp_zb_cluster_list, esp_zb_thermostat_client_cluster, ESP_ZB_ZCL_CLUSTER_CLIENT_ROLE);
+                esp_zb_cluster_list_add_on_off_cluster(esp_zb_cluster_list, esp_zb_on_off_client_cluster, ESP_ZB_ZCL_CLUSTER_CLIENT_ROLE);
+
+                esp_zb_ep_list_t *esp_zb_ep_list = esp_zb_ep_list_create();
+                esp_zb_endpoint_config_t endpoint_config = {
+                    .endpoint = HA_ONOFF_SWITCH_ENDPOINT,
+                    .app_profile_id = ESP_ZB_AF_HA_PROFILE_ID,
+                    .app_device_id = ESP_ZB_HA_ON_OFF_SWITCH_DEVICE_ID,
+                    .app_device_version = 0
+                };
+                esp_zb_ep_list_add_ep(esp_zb_ep_list, esp_zb_cluster_list, endpoint_config);
+
+                esp_zb_device_register(esp_zb_ep_list);
+                esp_zb_core_action_handler_register(zb_action_handler);
+                esp_zb_set_primary_network_channel_set(ESP_ZB_PRIMARY_CHANNEL_MASK);
+                esp_zb_start(false);
+            }
         }
     } else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP) {
         ip_event_got_ip_t* event = (ip_event_got_ip_t*) event_data;
-        ESP_LOGI(TAG, "Connected to Wi-Fi, IP: " IPSTR, IP2STR(&event->ip_info.ip));
+        ESP_LOGI(TAG, "Connected to Wi-Fi with static IP: " IPSTR, IP2STR(&event->ip_info.ip));
+        // Vérifier que l'IP est bien appliquée
+        esp_netif_ip_info_t ip_info;
+        if (esp_netif_get_ip_info(esp_netif_get_handle_from_ifkey("WIFI_STA_DEF"), &ip_info) == ESP_OK) {
+            ESP_LOGI(TAG, "Verified IP: " IPSTR, IP2STR(&ip_info.ip));
+        } else {
+            ESP_LOGE(TAG, "Failed to verify IP info");
+        }
         wifi_retry_count = 0; // Réinitialiser le compteur en cas de succès
-        ESP_ERROR_CHECK(esp_zb_start(true)); // Lancer Zigbee après connexion Wi-Fi
-        vTaskDelay(1000 / portTICK_PERIOD_MS); // Délai de 1 seconde
+        // Initialiser Zigbee immédiatement après une connexion Wi-Fi réussie
+        if (!zb_initialized) {
+            esp_zb_cfg_t zb_nwk_cfg = ESP_ZB_ZR_CONFIG();
+            esp_zb_init(&zb_nwk_cfg);
+            zb_initialized = true;
+
+            // Configurer Zigbee ici
+            uint8_t zcl_version = ESP_ZB_ZCL_BASIC_ZCL_VERSION_DEFAULT_VALUE;
+            uint16_t app_version = 1;
+            uint16_t stack_version = 0x0003;
+            uint8_t hw_version = 1;
+            char manu_name[] = ESP_MANUFACTURER_NAME;
+            char model_id[] = ESP_MODEL_IDENTIFIER;
+            esp_zb_attribute_list_t *esp_zb_basic_cluster = esp_zb_zcl_attr_list_create(ESP_ZB_ZCL_CLUSTER_ID_BASIC);
+            esp_zb_basic_cluster_add_attr(esp_zb_basic_cluster, ESP_ZB_ZCL_ATTR_BASIC_ZCL_VERSION_ID, &zcl_version);
+            esp_zb_basic_cluster_add_attr(esp_zb_basic_cluster, ESP_ZB_ZCL_ATTR_BASIC_APPLICATION_VERSION_ID, &app_version);
+            esp_zb_basic_cluster_add_attr(esp_zb_basic_cluster, ESP_ZB_ZCL_ATTR_BASIC_STACK_VERSION_ID, &stack_version);
+            esp_zb_basic_cluster_add_attr(esp_zb_basic_cluster, ESP_ZB_ZCL_ATTR_BASIC_HW_VERSION_ID, &hw_version);
+            esp_zb_basic_cluster_add_attr(esp_zb_basic_cluster, ESP_ZB_ZCL_ATTR_BASIC_MANUFACTURER_NAME_ID, manu_name);
+            esp_zb_basic_cluster_add_attr(esp_zb_basic_cluster, ESP_ZB_ZCL_ATTR_BASIC_MODEL_IDENTIFIER_ID, model_id);
+
+            esp_zb_attribute_list_t *esp_zb_thermostat_client_cluster = esp_zb_zcl_attr_list_create(ESP_ZB_ZCL_CLUSTER_ID_THERMOSTAT);
+            esp_zb_attribute_list_t *esp_zb_on_off_client_cluster = esp_zb_zcl_attr_list_create(ESP_ZB_ZCL_CLUSTER_ID_ON_OFF);
+
+            esp_zb_cluster_list_t *esp_zb_cluster_list = esp_zb_zcl_cluster_list_create();
+            esp_zb_cluster_list_add_basic_cluster(esp_zb_cluster_list, esp_zb_basic_cluster, ESP_ZB_ZCL_CLUSTER_SERVER_ROLE);
+            esp_zb_cluster_list_add_thermostat_cluster(esp_zb_cluster_list, esp_zb_thermostat_client_cluster, ESP_ZB_ZCL_CLUSTER_CLIENT_ROLE);
+            esp_zb_cluster_list_add_on_off_cluster(esp_zb_cluster_list, esp_zb_on_off_client_cluster, ESP_ZB_ZCL_CLUSTER_CLIENT_ROLE);
+
+            esp_zb_ep_list_t *esp_zb_ep_list = esp_zb_ep_list_create();
+            esp_zb_endpoint_config_t endpoint_config = {
+                .endpoint = HA_ONOFF_SWITCH_ENDPOINT,
+                .app_profile_id = ESP_ZB_AF_HA_PROFILE_ID,
+                .app_device_id = ESP_ZB_HA_ON_OFF_SWITCH_DEVICE_ID,
+                .app_device_version = 0
+            };
+            esp_zb_ep_list_add_ep(esp_zb_ep_list, esp_zb_cluster_list, endpoint_config);
+
+            esp_zb_device_register(esp_zb_ep_list);
+            esp_zb_core_action_handler_register(zb_action_handler);
+            esp_zb_set_primary_network_channel_set(ESP_ZB_PRIMARY_CHANNEL_MASK);
+            esp_zb_start(false);
+        }
         httpd_handle_t server = start_webserver();
         if (server == NULL) {
             ESP_LOGE(TAG, "Web server failed to start, retrying in 2 seconds");
             vTaskDelay(2000 / portTICK_PERIOD_MS);
-            server = start_webserver(); // Tentative de redémarrage
+            server = start_webserver();
             if (server == NULL) {
                 ESP_LOGE(TAG, "Web server failed to start after retry");
             }
         }
-        ESP_LOGI(TAG, "Free heap: %lu bytes", (unsigned long)esp_get_free_heap_size()); // Correction ici
+        ESP_LOGI(TAG, "Free heap: %lu bytes", (unsigned long)esp_get_free_heap_size());
     }
 }
 
@@ -224,10 +315,29 @@ static void wifi_init(void)
 {
     ESP_ERROR_CHECK(esp_netif_init());
     ESP_ERROR_CHECK(esp_event_loop_create_default());
-    esp_netif_create_default_wifi_sta();
 
-    wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
-    ESP_ERROR_CHECK(esp_wifi_init(&cfg));
+    // Créer et configurer l'interface réseau avec une IP statique
+    esp_netif_config_t cfg = ESP_NETIF_DEFAULT_WIFI_STA();
+    esp_netif_t *netif = esp_netif_new(&cfg);
+    assert(netif);
+
+    // Désactiver le DHCP client en premier
+    ESP_ERROR_CHECK(esp_netif_dhcpc_stop(netif));
+    vTaskDelay(100 / portTICK_PERIOD_MS); // Petit délai pour s'assurer que le DHCP est arrêté
+
+    // Configurer les paramètres IP statiques
+    esp_netif_ip_info_t ip_info;
+    IP4_ADDR(&ip_info.ip, STATIC_IP_ADDR0, STATIC_IP_ADDR1, STATIC_IP_ADDR2, STATIC_IP_ADDR3);
+    IP4_ADDR(&ip_info.gw, STATIC_GW_ADDR0, STATIC_GW_ADDR1, STATIC_GW_ADDR2, STATIC_GW_ADDR3);
+    IP4_ADDR(&ip_info.netmask, STATIC_NETMASK_ADDR0, STATIC_NETMASK_ADDR1, STATIC_NETMASK_ADDR2, STATIC_NETMASK_ADDR3);
+    ESP_ERROR_CHECK(esp_netif_set_ip_info(netif, &ip_info));
+
+    // Attacher l'interface comme station Wi-Fi
+    ESP_ERROR_CHECK(esp_netif_attach_wifi_station(netif));
+
+    // Initialiser Wi-Fi
+    wifi_init_config_t wifi_config = WIFI_INIT_CONFIG_DEFAULT();
+    ESP_ERROR_CHECK(esp_wifi_init(&wifi_config));
 
     esp_event_handler_instance_t instance_any_id;
     esp_event_handler_instance_t instance_got_ip;
@@ -242,7 +352,7 @@ static void wifi_init(void)
                                                         NULL,
                                                         &instance_got_ip));
 
-    wifi_config_t wifi_config = {
+    wifi_config_t wifi_sta_config = {
         .sta = {
             .ssid = WIFI_SSID,
             .password = WIFI_PASSWORD,
@@ -251,14 +361,19 @@ static void wifi_init(void)
         },
     };
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
-    ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wifi_config));
+    ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wifi_sta_config));
     ESP_ERROR_CHECK(esp_wifi_start());
+
+    // Déclencher manuellement l'événement IP après configuration statique
+    ip_event_got_ip_t ip_event;
+    ip_event.ip_info = ip_info;
+    ESP_ERROR_CHECK(esp_event_post(IP_EVENT, IP_EVENT_STA_GOT_IP, &ip_event, sizeof(ip_event_got_ip_t), portMAX_DELAY));
 }
 
 static esp_err_t get_handler(httpd_req_t *req)
 {
     static int16_t last_temperature = INT16_MIN; // Synchronisé avec zb_attribute_reporting_handler
-    char response[1024]; // Augmenter la taille du buffer
+    char response[1024];
     snprintf(response, sizeof(response),
              "<html><body>"
              "<h1>Thermostat Control</h1>"
@@ -330,7 +445,7 @@ static esp_err_t post_handler(httpd_req_t *req)
 static httpd_handle_t start_webserver(void)
 {
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
-    config.server_port = 8080; // Changer pour le port 8080
+    config.server_port = 8888;
     httpd_handle_t server = NULL;
 
     ESP_LOGI(TAG, "Starting web server on port %d", config.server_port);
@@ -358,55 +473,25 @@ static httpd_handle_t start_webserver(void)
 
 static void esp_zb_task(void *pvParameters)
 {
-    // Initialiser la pile Zigbee
-    esp_zb_cfg_t zb_nwk_cfg = ESP_ZB_ZR_CONFIG();
-    esp_zb_init(&zb_nwk_cfg);
+    // La logique Zigbee est maintenant dans wifi_event_handler
+    while (1) {
+        vTaskDelay(1000 / portTICK_PERIOD_MS); // Boucle vide pour garder la tâche active
+    }
+}
 
-    // Créer le cluster Basic avec attributs standard
-    uint8_t zcl_version = ESP_ZB_ZCL_BASIC_ZCL_VERSION_DEFAULT_VALUE;
-    uint16_t app_version = 1;
-    uint16_t stack_version = 0x0003;
-    uint8_t hw_version = 1;
-    char manu_name[] = ESP_MANUFACTURER_NAME;
-    char model_id[] = ESP_MODEL_IDENTIFIER;
-    esp_zb_attribute_list_t *esp_zb_basic_cluster = esp_zb_zcl_attr_list_create(ESP_ZB_ZCL_CLUSTER_ID_BASIC);
-    esp_zb_basic_cluster_add_attr(esp_zb_basic_cluster, ESP_ZB_ZCL_ATTR_BASIC_ZCL_VERSION_ID, &zcl_version);
-    esp_zb_basic_cluster_add_attr(esp_zb_basic_cluster, ESP_ZB_ZCL_ATTR_BASIC_APPLICATION_VERSION_ID, &app_version);
-    esp_zb_basic_cluster_add_attr(esp_zb_basic_cluster, ESP_ZB_ZCL_ATTR_BASIC_STACK_VERSION_ID, &stack_version);
-    esp_zb_basic_cluster_add_attr(esp_zb_basic_cluster, ESP_ZB_ZCL_ATTR_BASIC_HW_VERSION_ID, &hw_version);
-    esp_zb_basic_cluster_add_attr(esp_zb_basic_cluster, ESP_ZB_ZCL_ATTR_BASIC_MANUFACTURER_NAME_ID, manu_name);
-    esp_zb_basic_cluster_add_attr(esp_zb_basic_cluster, ESP_ZB_ZCL_ATTR_BASIC_MODEL_IDENTIFIER_ID, model_id);
-
-    // Créer les clusters client Thermostat et On/Off
-    esp_zb_attribute_list_t *esp_zb_thermostat_client_cluster = esp_zb_zcl_attr_list_create(ESP_ZB_ZCL_CLUSTER_ID_THERMOSTAT);
-    esp_zb_attribute_list_t *esp_zb_on_off_client_cluster = esp_zb_zcl_attr_list_create(ESP_ZB_ZCL_CLUSTER_ID_ON_OFF);
-
-    // Créer la liste des clusters
-    esp_zb_cluster_list_t *esp_zb_cluster_list = esp_zb_zcl_cluster_list_create();
-    esp_zb_cluster_list_add_basic_cluster(esp_zb_cluster_list, esp_zb_basic_cluster, ESP_ZB_ZCL_CLUSTER_SERVER_ROLE);
-    esp_zb_cluster_list_add_thermostat_cluster(esp_zb_cluster_list, esp_zb_thermostat_client_cluster, ESP_ZB_ZCL_CLUSTER_CLIENT_ROLE);
-    esp_zb_cluster_list_add_on_off_cluster(esp_zb_cluster_list, esp_zb_on_off_client_cluster, ESP_ZB_ZCL_CLUSTER_CLIENT_ROLE);
-
-    // Créer la liste des endpoints
-    esp_zb_ep_list_t *esp_zb_ep_list = esp_zb_ep_list_create();
-    esp_zb_endpoint_config_t endpoint_config = {
-        .endpoint = HA_ONOFF_SWITCH_ENDPOINT,
-        .app_profile_id = ESP_ZB_AF_HA_PROFILE_ID,
-        .app_device_id = ESP_ZB_HA_ON_OFF_SWITCH_DEVICE_ID,
-        .app_device_version = 0
-    };
-    esp_zb_ep_list_add_ep(esp_zb_ep_list, esp_zb_cluster_list, endpoint_config);
-
-    // Enregistrer l'appareil
-    esp_zb_device_register(esp_zb_ep_list);
-    esp_zb_core_action_handler_register(zb_action_handler);
-    esp_zb_set_primary_network_channel_set(ESP_ZB_PRIMARY_CHANNEL_MASK); // Utiliser le canal 11
-
-    // Initialiser Wi-Fi (démarré dans wifi_init, Zigbee démarré dans wifi_event_handler)
-    wifi_init();
-
-    // Pas de boucle d'attente ici, laisser wifi_event_handler gérer le démarrage
-    esp_zb_stack_main_loop();
+static void network_test_task(void *pvParameters)
+{
+    esp_netif_ip_info_t ip_info;
+    ip4_addr_t ip4_addr;
+    while (1) {
+        if (esp_netif_get_ip_info(esp_netif_get_handle_from_ifkey("WIFI_STA_DEF"), &ip_info) == ESP_OK) {
+            ip4_addr.addr = ip_info.ip.addr;
+            ESP_LOGI(TAG, "Network test: IP %s is alive", ip4addr_ntoa(&ip4_addr));
+        } else {
+            ESP_LOGE(TAG, "Failed to get IP info");
+        }
+        vTaskDelay(10000 / portTICK_PERIOD_MS);
+    }
 }
 
 void app_main(void)
@@ -417,5 +502,7 @@ void app_main(void)
     };
     ESP_ERROR_CHECK(nvs_flash_init());
     ESP_ERROR_CHECK(esp_zb_platform_config(&config));
-    xTaskCreate(esp_zb_task, "Zigbee_main", 4096 * 4, NULL, 5, NULL); // Augmenter la taille de la pile à 16 KB
+    xTaskCreate(esp_zb_task, "Zigbee_main", 4096 * 4, NULL, 5, NULL);
+    xTaskCreate(network_test_task, "Network_test", 2048, NULL, 3, NULL);
+    wifi_init(); // Démarrer Wi-Fi ici
 }

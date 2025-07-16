@@ -13,6 +13,22 @@
 #define WIFI_PASSWORD "KqphCaz6QgxZc697GS"
 #define WIFI_MAX_RETRIES 10
 
+// Paramètres IP statique
+#define STATIC_IP_ADDR0 192
+#define STATIC_IP_ADDR1 168
+#define STATIC_IP_ADDR2 1
+#define STATIC_IP_ADDR3 160  // Choisissez une IP dans la plage de votre réseau, ex. 192.168.1.98
+
+#define STATIC_GW_ADDR0 192
+#define STATIC_GW_ADDR1 168
+#define STATIC_GW_ADDR2 1
+#define STATIC_GW_ADDR3 1   // Adresse de la passerelle (votre routeur)
+
+#define STATIC_NETMASK_ADDR0 255
+#define STATIC_NETMASK_ADDR1 255
+#define STATIC_NETMASK_ADDR2 255
+#define STATIC_NETMASK_ADDR3 0  // Masque de sous-réseau standard
+
 /* Zigbee configuration */
 #define INSTALLCODE_POLICY_ENABLE       false       /* enable the install code policy for security */
 #define HA_ONOFF_SWITCH_ENDPOINT        10          /* esp switch device endpoint */
