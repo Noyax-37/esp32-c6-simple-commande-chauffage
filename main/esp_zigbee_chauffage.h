@@ -14,20 +14,11 @@
 #define WIFI_MAX_RETRIES 10
 
 // Paramètres IP statique
-#define STATIC_IP_ADDR0 192
-#define STATIC_IP_ADDR1 168
-#define STATIC_IP_ADDR2 1
-#define STATIC_IP_ADDR3 160  // Choisissez une IP dans la plage de votre réseau, ex. 192.168.1.98
-
-#define STATIC_GW_ADDR0 192
-#define STATIC_GW_ADDR1 168
-#define STATIC_GW_ADDR2 1
-#define STATIC_GW_ADDR3 1   // Adresse de la passerelle (votre routeur)
-
-#define STATIC_NETMASK_ADDR0 255
-#define STATIC_NETMASK_ADDR1 255
-#define STATIC_NETMASK_ADDR2 255
-#define STATIC_NETMASK_ADDR3 0  // Masque de sous-réseau standard
+#define EXAMPLE_STATIC_IP_ADDR "192.168.1.160"  // Adresse IP statique pour l'appareil
+#define EXAMPLE_STATIC_GW_ADDR "192.168.1.1"  // Adresse de la passerelle (votre routeur)
+#define EXAMPLE_STATIC_NETMASK_ADDR "255.255.255.0"  // Masque de sous-réseau standard
+#define EXAMPLE_MAIN_DNS_SERVER EXAMPLE_STATIC_GW_ADDR  // Serveur DNS principal (généralement la même que la passerelle)
+#define EXAMPLE_BACKUP_DNS_SERVER "8.8.8.8"  // Serveur DNS de secours (Google DNS)
 
 /* Zigbee configuration */
 #define INSTALLCODE_POLICY_ENABLE       false       /* enable the install code policy for security */
