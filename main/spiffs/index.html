@@ -2,49 +2,132 @@
 <html>
 <head>
     <title>Thermostat Control</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta charset="UTF-8"> <!-- Ajout explicite de l'encodage UTF-8 -->
+    <meta charset="UTF-8">
     <style>
-        body { font-family: Arial, sans-serif; margin: 50px; text-align: left; }
-        .value { font-size: 24px; }
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .container { max-width: 600px; margin: auto; }
         .input-group { margin: 10px 0; }
-        button { padding: 5px 10px; font-size: 16px; margin: 0 5px; }
-        input[type="number"] { width: 60px; font-size: 16px; padding: 2px; }
+        label { display: inline-block; width: 150px; }
+        input[type="number"] { padding: 5px; width: 100px; }
+        button { padding: 5px 10px; margin: 5px 0; }
+        #update_status { color: blue; }
+        #relay_mismatch { color: red; }
     </style>
 </head>
 <body>
-    <h1>Thermostat Control</h1>
-    <div class="input-group">
-        <span>Temperature: </span><span class="value">%s °C</span><br>
-        <span>Setpoint: </span><span class="value">%s °C</span><br>
-        <span>Relay State: </span><span class="value">%s</span><br>
-        <span>Thermostat Running State: </span><span class="value">%s</span><br>
-        <span>Setpoint to set: </span><input type="number" id="setpoint" step="0.1" value="%s" onchange="update()" style="width: 60px;"> °C<br>
-        <span>High Hysteresis: </span><input type="number" id="high_hyst" step="0.1" value="%s" onchange="update()" style="width: 60px;"> °C<br>
-        <span>Low Hysteresis: </span><input type="number" id="low_hyst" step="0.1" value="%s" onchange="update()" style="width: 60px;"> °C<br>
-    </div>
-    <button onclick="update()">Update</button> <!-- Ajout du bouton Update -->
-    <script>
-        function update() {
-            var formData = new URLSearchParams();
-            formData.append('setpoint', document.getElementById('setpoint').value || 0.0);
-            formData.append('high_hyst', document.getElementById('high_hyst').value || 0.0);
-            formData.append('low_hyst', document.getElementById('low_hyst').value || 0.0);
-            fetch('/update', { method: 'POST', body: formData })
+    <div class="container">
+        <h1>Thermostat Control</h1>
+        <div class="input-group">
+            <label>Temperature:</label> <span id="temperature">%.1f</span> °C
+        </div>
+        <div class="input-group">
+            <label>Setpoint:</label> <span id="setpoint">%.1f</span> °C
+        </div>
+        <div class="input-group">
+            <label>High Hysteresis:</label> <span id="high_hyst">%.1f</span> °C
+        </div>
+        <div class="input-group">
+            <label>Low Hysteresis:</label> <span id="low_hyst">%.1f</span> °C
+        </div>
+        <div class="input-group">
+            <label>Relay Actual:</label> 
+            <span id="relay_actual">%.s</span>
+            <label>Relay Commanded:</label> 
+            <span id="relay_commanded">%.s</span>
+            <span id="relay_mismatch" style="display:none;">(Mismatch)</span>
+        </div>
+        <div id="update_status" style="color: blue;"></div>
+        <div class="input-group">
+            <label>Running State:</label> <span id="running">%.s</span>
+        </div>
+        <div class="input-group">
+            <label>New Setpoint:</label>
+            <input type="number" id="new_setpoint" step="0.1" value="19.0">
+            <button onclick="startUpdateSetpoint()">Update Setpoint</button>
+        </div>
+        <div class="input-group">
+            <label>New High Hysteresis:</label>
+            <input type="number" id="new_high_hyst" step="0.1" value="0.1">
+            <button onclick="startUpdateHighHysteresis()">Update High Hysteresis</button>
+        </div>
+        <div class="input-group">
+            <label>New Low Hysteresis:</label>
+            <input type="number" id="new_low_hyst" step="0.1" value="0.1">
+            <button onclick="startUpdateLowHysteresis()">Update Low Hysteresis</button>
+        </div>
+
+        <script>
+            let updateInterval = null;
+
+            function fetchData() {
+                fetch('/data', { cache: 'no-store' }) // Forcer un rafraîchissement sans cache
+                    .then(response => response.json())
+                    .then(data => {
+                        document.getElementById('temperature').textContent = data.temperature;
+                        document.getElementById('setpoint').textContent = data.setpoint;
+                        document.getElementById('high_hyst').textContent = data.high_hyst || 'N/A';
+                        document.getElementById('low_hyst').textContent = data.low_hyst || 'N/A';
+                        document.getElementById('relay_actual').textContent = data.relay_actual;
+                        document.getElementById('relay_commanded').textContent = data.relay_commanded;
+                        document.getElementById('running').textContent = data.running;
+                        document.getElementById('update_status').textContent = data.update_status || '';
+
+                        // Vérifier le mismatch et afficher en rouge si nécessaire
+                        const relayActual = document.getElementById('relay_actual');
+                        const relayCommanded = document.getElementById('relay_commanded');
+                        const mismatchSpan = document.getElementById('relay_mismatch');
+                        if (data.relay_actual !== "N/A" && data.relay_commanded !== "N/A" && 
+                            data.relay_actual !== data.relay_commanded) {
+                            mismatchSpan.style.display = "inline";
+                        } else {
+                            mismatchSpan.style.display = "none";
+                        }
+
+                        // Si update_status est vide et un intervalle est actif, le stopper
+                        if (!data.update_status && updateInterval) {
+                            clearInterval(updateInterval);
+                            updateInterval = null;
+                        }
+                    })
+                    .catch(error => console.error('Error:', error));
+            }
+
+            function startUpdate(operation, value, urlParam) {
+                if (updateInterval) clearInterval(updateInterval); // Arrêter tout intervalle précédent
+                updateInterval = setInterval(fetchData, 1000); // Rafraîchir toutes les secondes
+
+                fetch('/update', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: `${urlParam}=${encodeURIComponent(value)}`
+                })
                 .then(response => response.text())
-                .then(data => console.log(data))
+                .then(data => {
+                    console.log(data);
+                    fetchData(); // Forcer un rafraîchissement immédiat après la requête
+                })
                 .catch(error => console.error('Error:', error));
-        }
-        function increment(id, step) {
-            var input = document.getElementById(id);
-            input.value = (parseFloat(input.value) + step).toFixed(1);
-            update();
-        }
-        function decrement(id, step) {
-            var input = document.getElementById(id);
-            input.value = (parseFloat(input.value) - step).toFixed(1);
-            update();
-        }
-    </script>
+            }
+
+            function startUpdateSetpoint() {
+                const setpoint = document.getElementById('new_setpoint').value;
+                startUpdate('setpoint', setpoint, 'setpoint');
+            }
+
+            function startUpdateHighHysteresis() {
+                const high_hyst = document.getElementById('new_high_hyst').value;
+                startUpdate('high_hyst', high_hyst, 'high_hyst');
+            }
+
+            function startUpdateLowHysteresis() {
+                const low_hyst = document.getElementById('new_low_hyst').value;
+                startUpdate('low_hyst', low_hyst, 'low_hyst');
+            }
+
+            // Rafraîchir les données toutes les secondes
+            setInterval(fetchData, 1000);
+            fetchData(); // Chargement initial
+        </script>
+    </div>
 </body>
 </html>
