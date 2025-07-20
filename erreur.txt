@@ -1,0 +1,226 @@
+il y a des erreurs, voir ci dessous mais j'aimerai que tu corriges aussi: uint16_t high_hysteresis = 10;
+uint16_t low_hysteresis = 10;
+uint16_t input_high_hyst = 10;
+uint16_t input_low_hyst = 10;
+au lieu de 25 partout
+I (26) boot: ESP-IDF v5.4.2-dirty 2nd stage bootloader
+I (27) boot: compile time Jul 19 2025 17:52:52
+I (28) boot: chip revision: v0.1
+I (28) boot: efuse block revision: v0.2
+I (31) boot.esp32c6: SPI Speed      : 80MHz
+I (35) boot.esp32c6: SPI Mode       : DIO
+I (38) boot.esp32c6: SPI Flash Size : 16MB
+I (42) boot: Enabling RNG early entropy source...
+I (47) boot: Partition Table:
+I (49) boot: ## Label            Usage          Type ST Offset   Length
+I (56) boot:  0 nvs              WiFi data        01 02 00009000 00006000
+I (62) boot:  1 spiffs           Unknown data     01 82 0000f000 00010000
+I (69) boot:  2 otadata          OTA data         01 00 0001f000 00002000
+I (75) boot:  3 padding1         Unknown data     01 06 00021000 0000f000
+I (82) boot:  4 app0             OTA app          00 10 00030000 001e0000
+I (88) boot:  5 phy_init         RF data          01 01 00213000 00001000
+I (95) boot:  6 zb_storage       Unknown data     01 81 00214000 00010000
+I (101) boot:  7 zb_fct           Unknown data     01 81 00224000 00000400
+I (108) boot:  8 padding2         Unknown data     01 06 00225000 000dabc0
+I (115) boot: End of partition table
+I (118) esp_image: segment 0: paddr=00030020 vaddr=42100020 size=25f58h (155480) map
+I (184) esp_image: segment 1: paddr=00055f80 vaddr=40800000 size=0a098h ( 41112) load
+I (203) esp_image: segment 2: paddr=00060020 vaddr=42000020 size=f86ach (1017516) map
+I (586) esp_image: segment 3: paddr=001586d4 vaddr=4080a098 size=10fe0h ( 69600) load
+I (617) esp_image: segment 4: paddr=001696bc vaddr=4081b080 size=0387ch ( 14460) load
+I (636) boot: Loaded app from partition at offset 0x30000
+I (637) boot: Disabling RNG early entropy source...
+I (647) cpu_start: Unicore app
+I (656) cpu_start: Pro cpu start user code
+I (656) cpu_start: cpu freq: 160000000 Hz
+I (656) app_init: Application information:
+I (656) app_init: Project name:     Zigbee_customized_thermostat
+I (662) app_init: App version:      41a84d4-dirty
+I (666) app_init: Compile time:     Jul 19 2025 18:01:01
+I (671) app_init: ELF file SHA256:  94829da97...
+I (676) app_init: ESP-IDF:          v5.4.2-dirty
+I (680) efuse_init: Min chip rev:     v0.0
+I (684) efuse_init: Max chip rev:     v0.99
+I (688) efuse_init: Chip rev:         v0.1
+I (692) heap_init: Initializing. RAM available for dynamic allocation:
+I (698) heap_init: At 40827AF0 len 00054B20 (338 KiB): RAM
+I (703) heap_init: At 4087C610 len 00002F54 (11 KiB): RAM
+I (708) heap_init: At 50000000 len 00003FE8 (15 KiB): RTCRAM
+I (714) spi_flash: detected chip: generic
+I (717) spi_flash: flash io: dio
+I (721) sleep_gpio: Configure to isolate all GPIO pins in sleep state
+I (727) sleep_gpio: Enable automatic switching of GPIO sleep configuration
+I (733) coexist: coex firmware version: 7b9a184
+I (764) coexist: coexist rom version 5b8dcfa
+I (764) main_task: Started on CPU0
+I (764) main_task: Calling app_main()
+I (774) pp: pp rom version: 5b8dcfa
+I (774) net80211: net80211 rom version: 5b8dcfa
+I (784) wifi:wifi driver task: 4083098c, prio:23, stack:6656, core=0
+I (784) wifi:wifi firmware version: bea31f3
+I (784) wifi:wifi certification version: v7.0
+I (784) wifi:config NVS flash: enabled
+I (784) wifi:config nano formatting: disabled
+I (794) wifi:mac_version:HAL_MAC_ESP32AX_761,ut_version:N, band mode:0x1
+I (804) wifi:Init data frame dynamic rx buffer num: 32
+I (804) wifi:Init static rx mgmt buffer num: 5
+I (804) wifi:Init management short buffer num: 32
+I (814) wifi:Init dynamic tx buffer num: 32
+I (814) wifi:Init static tx FG buffer num: 2
+I (824) wifi:Init static rx buffer size: 1700 (rxctrl:92, csi:512)
+I (824) wifi:Init static rx buffer num: 10
+I (834) wifi:Init dynamic rx buffer num: 32
+I (834) wifi_init: rx ba win: 6
+I (834) wifi_init: accept mbox: 6
+I (844) wifi_init: tcpip mbox: 32
+I (844) wifi_init: udp mbox: 6
+I (844) wifi_init: tcp mbox: 6
+I (844) wifi_init: tcp tx win: 5760
+I (854) wifi_init: tcp rx win: 5760
+I (854) wifi_init: tcp mss: 1440
+I (854) wifi_init: WiFi IRAM OP enabled
+I (864) wifi_init: WiFi RX IRAM OP enabled
+I (864) wifi_init: WiFi SLP IRAM OP enabled
+I (874) phy_init: phy_version 331,5b89037,Mar  3 2025,16:01:12
+W (954) wifi:ACK_TAB0   :0x   90a0b, QAM16:0x9 (24Mbps), QPSK:0xa (12Mbps), BPSK:0xb (6Mbps)
+W (954) wifi:CTS_TAB0   :0x   90a0b, QAM16:0x9 (24Mbps), QPSK:0xa (12Mbps), BPSK:0xb (6Mbps)
+W (954) wifi:(agc)0x600a7128:0xd20099fe, min.avgNF:0xce->0xd2(dB), RCalCount:0x9, min.RRssi:0x9fe(-96.12)
+I (964) wifi:11ax coex: WDEVAX_PTI0(0x55777555), WDEVAX_PTI1(0x00003377).
+
+I (974) wifi:mode : sta (40:4c:ca:5e:c5:e4)
+I (974) wifi:enable tsf
+I (984) main_task: Returned from app_main()
+I (3384) wifi:new:<11,0>, old:<1,0>, ap:<255,255>, sta:<11,0>, prof:1, snd_ch_cfg:0x0
+I (3384) wifi:(connect)dot11_authmode:0x3, pairwise_cipher:0x3, group_cipher:0x1
+I (3394) wifi:state: init -> auth (0xb0)
+I (3394) wifi:state: auth -> assoc (0x0)
+I (3404) wifi:Association refused temporarily time 292, comeback time 392 (TUs)
+I (3804) wifi:state: assoc -> assoc (0x0)
+E (3814) wifi:Association refused too many times, max allowed 1
+I (3814) wifi:state: assoc -> init (0xd010)
+I (3824) wifi:new:<11,0>, old:<11,0>, ap:<255,255>, sta:<11,0>, prof:1, snd_ch_cfg:0x0
+W (3824) ESP_ZIGBEE_CHAUFFAGE: Disconnected from Wi-Fi, retrying... (Attempt 1/10)
+E (3824) ESP_ZIGBEE_CHAUFFAGE: !! STA Disconnected! Reason: 208
+W (6234) ESP_ZIGBEE_CHAUFFAGE: Disconnected from Wi-Fi, retrying... (Attempt 2/10)
+E (6234) ESP_ZIGBEE_CHAUFFAGE: !! STA Disconnected! Reason: 205
+I (8644) wifi:new:<11,0>, old:<11,0>, ap:<255,255>, sta:<11,0>, prof:1, snd_ch_cfg:0x0
+I (8644) wifi:(connect)dot11_authmode:0x3, pairwise_cipher:0x3, group_cipher:0x1
+I (8654) wifi:state: init -> auth (0xb0)
+I (8664) wifi:state: auth -> assoc (0x0)
+I (8674) wifi:(assoc)RESP, Extended Capabilities length:8, operating_mode_notification:0
+I (8674) wifi:(assoc)RESP, Extended Capabilities, MBSSID:0, TWT Responder:0, OBSS Narrow Bandwidth RU In OFDMA Tolerance:0
+I (8684) wifi:Extended Capabilities length:8, operating_mode_notification:1
+I (8684) wifi:state: assoc -> run (0x10)
+I (8694) wifi:(trc)phytype:CBW20-SGI, snr:38, maxRate:144, highestRateIdx:0
+W (8694) wifi:(trc)band:2G, phymode:3, highestRateIdx:0, lowestRateIdx:11, dataSchedTableSize:14
+I (8704) wifi:(trc)band:2G, rate(S-MCS7, rateIdx:0), ampdu(rate:S-MCS7, schedIdx(0, stop:8)), snr:38, ampduState:wait operational
+I (8714) wifi:ifidx:0, rssi:-59, nf:-97, phytype(0x3, CBW20-SGI), phymode(0x3, 11bgn), max_rate:144, he:0, vht:0, ht:1
+I (8724) wifi:(ht)max.RxAMPDULenExponent:3(65535 bytes), MMSS:5(4 us)
+I (8744) wifi:connected with Bbox-417260CF-Legacy, aid = 38, channel 11, BW20, bssid = 92:92:4a:48:93:09
+I (8744) wifi:security: WPA2-PSK, phy:bgn, rssi:-59, cipher(pairwise:0x3, group:0x1), pmf:1, 
+I (8754) wifi:pm start, type: 1, twt_start:0
+
+I (8754) wifi:pm start, type:1, aid:0x26, trans-BSSID:92:92:4a:48:93:09, BSSID[5]:0x9, mbssid(max-indicator:0, index:0), he:0
+I (8764) wifi:dp: 1, bi: 102400, li: 3, scale listen interval from 307200 us to 307200 us
+I (8774) wifi:set rx beacon pti, rx_bcn_pti: 10, bcn_timeout: 25000, mt_pti: 10, mt_time: 10000
+I (8784) wifi:[ADDBA]TX addba request, tid:0, dialogtoken:1, bufsize:64, A-MSDU:0(not supported), policy:1(IMR), ssn:0(0x0)
+I (8794) wifi:[ADDBA]TX addba request, tid:7, dialogtoken:2, bufsize:64, A-MSDU:0(not supported), policy:1(IMR), ssn:0(0x20)
+I (8804) wifi:[ADDBA]TX addba request, tid:5, dialogtoken:3, bufsize:64, A-MSDU:0(not supported), policy:1(IMR), ssn:0(0x0)
+I (8814) wifi:AP's beacon interval = 102400 us, DTIM period = 1
+I (8824) wifi:[ADDBA]RX addba response, status:0, tid:0/tb:1(0xa1), bufsize:64, batimeout:0, txa_wnd:64
+I (8834) wifi:[ADDBA]RX addba response, status:0, tid:7/tb:1(0xa1), bufsize:64, batimeout:0, txa_wnd:64
+I (8844) esp_netif_handlers: sta ip: 192.168.1.160, mask: 255.255.255.0, gw: 192.168.1.1
+I (8844) ESP_ZIGBEE_CHAUFFAGE: Connected to Wi-Fi, IP: 192.168.1.160
+I (8854) ESP_ZIGBEE_CHAUFFAGE: Free heap size after IP: 308196 bytes
+W (8844) wifi:<ba-add>idx:0, ifx:0, tid:7, TAHI:0x1000993, TALO:0x484a9292, (ssn:1, win:64, cur_ssn:1), CONF:0xc0007005
+I (8874) ESP_ZIGBEE_CHAUFFAGE: Web server started on port 80
+I (8874) ESP_ZIGBEE_CHAUFFAGE: Web server started successfully
+I (8884) ESP_ZIGBEE_CHAUFFAGE: Wi-Fi and 802.15.4 coexistence enabled
+I (8884) ESP_ZIGBEE_CHAUFFAGE: Free heap size at Zigbee task start: 275496 bytes
+I (8894) phy: libbtbb version: ec2ecba, Mar  3 2025, 16:01:27
+I (8914) ESP_ZIGBEE_CHAUFFAGE: Free heap size after Zigbee start: 250848 bytes
+I (8914) ESP_ZIGBEE_CHAUFFAGE: ZDO signal: ZDO Config Ready (0x17), status: ESP_FAIL (0xffffffff)
+I (8914) ESP_ZIGBEE_CHAUFFAGE: ZDO signal: NWK Permit Join (0x36), status: ESP_OK (0x0)
+I (8924) ESP_ZIGBEE_CHAUFFAGE: Signal: BDB Device Reboot, Status: ESP_OK (0x0)
+I (8934) ESP_ZIGBEE_CHAUFFAGE: Joined Zigbee network successfully (PAN ID: 0x1a62, Channel: 11, Short Address: 0x4fe8)
+I (8944) ESP_ZIGBEE_CHAUFFAGE: Sent read request for thermostat attributes
+W (9294) wifi:<ba-add>idx:1, ifx:0, tid:0, TAHI:0x1000993, TALO:0x484a9292, (ssn:1, win:64, cur_ssn:1), CONF:0xc0000005
+Guru Meditation Error: Core  0 panic'ed (Stack protection fault). 
+
+Detected in task "httpd" at 0x4200e9ee
+--- 0x4200e9ee: get_handler at C:/Users/alain/esp-zigbee-sdk/examples/esp_zigbee_chauffage/main/esp_zigbee_chauffage.c:377
+Stack pointer: 0x4083cff0
+Stack bounds: 0x4083d1e4 - 0x4083f1e0
+
+
+Core  0 register dump:
+MEPC    : 0x4200e9f0  RA      : 0x420747d8  SP      : 0x4083cff0  GP      : 0x4081b884
+--- 0x4200e9f0: get_handler at C:/Users/alain/esp-zigbee-sdk/examples/esp_zigbee_chauffage/main/esp_zigbee_chauffage.c:378
+--- 0x420747d8: httpd_uri at C:/Users/alain/esp/v5.4.2/esp-idf/components/esp_http_server/src/httpd_uri.c:331
+TP      : 0x4083f1e0  T0      : 0xffffe000  T1      : 0x0000000f  T2      : 0x00000000
+S0/FP   : 0x4083bfa8  S1      : 0x4083c020  A0      : 0x4083c020  A1      : 0x4083c028
+A2      : 0x00000000  A3      : 0x0000002f  A4      : 0x00000001  A5      : 0x4200e9d8
+--- 0x4200e9d8: get_handler at C:/Users/alain/esp-zigbee-sdk/examples/esp_zigbee_chauffage/main/esp_zigbee_chauffage.c:377
+A6      : 0x00000010  A7      : 0x4206ce96  S2      : 0x4083bfa8  S3      : 0x4083c020
+--- 0x4206ce96: event_start_select at C:/Users/alain/esp/v5.4.2/esp-idf/components/vfs/vfs_eventfd.c:99
+S4      : 0x00000000  S5      : 0x00000000  S6      : 0x00000000  S7      : 0x00000000
+S8      : 0x00000000  S9      : 0x00000000  S10     : 0x00000000  S11     : 0x00000000
+T3      : 0x00000000  T4      : 0x00000000  T5      : 0x00000000  T6      : 0x00000000
+MSTATUS : 0x00001881  MTVEC   : 0x40800001  MCAUSE  : 0x0000001b  MTVAL   : 0xfe800097
+--- 0x40800001: _vector_table at C:/Users/alain/esp/v5.4.2/esp-idf/components/riscv/vectors_intc.S:54
+MHARTID : 0x00000000
+
+Stack memory:
+4083cff0: 0x00000000 0x4083cff8 0xffffffff 0x4083cff8 0x4083cff8 0x00000000 0x00000006 0x00000004
+4083d010: 0xa800ffff 0x00000000 0x43006101 0x34014400 0x0102cc65 0xc33d0006 0x00006630 0x00000000
+4083d030: 0xa8c00000 0x4083cfc4 0x00000050 0x00000000 0x00000000 0x00000000 0x00000000 0x00000000
+4083d050: 0x00000000 0x00000000 0x00000000 0x00000000 0x00000000 0x00000000 0x00000000 0x40000000
+--- 0x40000000: _start in ROM
+4083d070: 0x00000000 0x00000000 0x00000000 0x00000000 0x00004000 0x420d1db0 0x4083cf94 0x00000150
+--- 0x420d1db0: recv_udp at C:/Users/alain/esp/v5.4.2/esp-idf/components/lwip/lwip/src/api/api_msg.c:220
+4083d090: 0x4083eec0 0x00000000 0x4081eb88 0x4081eb88 0x4083d090 0x4081eb80 0x00000014 0x4083f308
+4083d0b0: 0x4083f308 0x4083d090 0x00000000 0x00000005 0x4083d1e4 0x70747468 0x00000064 0x00000000
+4083d0d0: 0x00000000 0x4083f1e0 0x00000005 0x00000000 0x4083f334 0x42008418 0x00000000 0x40828440
+--- 0x42008418: pthread_cleanup_thread_specific_data_callback at C:/Users/alain/esp/v5.4.2/esp-idf/components/pthread/pthread_local_storage.c:126
+4083d0f0: 0x408284a8 0x40828510 0x00000000 0x00000000 0x00000001 0x00000000 0x00000000 0x00000000
+4083d110: 0x42007d86 0x00000000 0x00000000 0x00000000 0x00000000 0x00000000 0x00000000 0x00000000
+--- 0x42007d86: esp_cleanup_r at C:/Users/alain/esp/v5.4.2/esp-idf/components/newlib/newlib_init.c:43
+4083d130: 0x00000000 0x00000000 0x00000000 0x00000000 0x00000000 0x00000000 0x00000000 0x00000000
+4083d150: 0x00000000 0x00000000 0x00000000 0x00000000 0x00000000 0x00000000 0x00000000 0x00000000
+4083d170: 0x00000000 0x00000000 0x00000000 0x00000000 0x00000000 0x00000000 0x00000000 0x00000000
+4083d190: 0x00000000 0x00000000 0x00000000 0x00000000 0x00000000 0x00000000 0x00000000 0x00000000
+4083d1b0: 0x00000000 0x00000000 0x00000000 0x00000000 0x00000000 0x00000000 0x00000000 0x00000000
+4083d1d0: 0x00000000 0x00000000 0x00000000 0x00000200 0x00002000 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5
+4083d1f0: 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5
+4083d210: 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5
+4083d230: 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5
+4083d250: 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5
+4083d270: 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5
+4083d290: 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5
+4083d2b0: 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5
+4083d2d0: 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5
+4083d2f0: 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5
+4083d310: 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5
+4083d330: 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5
+4083d350: 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5
+4083d370: 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5
+4083d390: 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5
+4083d3b0: 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5
+4083d3d0: 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5
+
+
+
+ELF file SHA256: 94829da97
+
+Rebooting...
+ESP-ROM:esp32c6-20220919
+Build:Sep 19 2022
+rst:0xc (SW_CPU),boot:0xc (SPI_FAST_FLASH_BOOT)
+Saved PC:0x4001975a
+--- 0x4001975a: software_reset_cpu in ROM
+SPIWP:0xee
+mode:DIO, clock div:2
+load:0x40875720,len:0x16b8
+load:0x4086c110,len:0xe90
+load:0x4086e610,len:0x3064
+entry 0x4086c11a

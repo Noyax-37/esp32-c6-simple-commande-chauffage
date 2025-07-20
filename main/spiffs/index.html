@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Thermostat Control</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta charset="UTF-8"> <!-- Ajout explicite de l'encodage UTF-8 -->
+    <style>
+        body { font-family: Arial, sans-serif; margin: 50px; text-align: left; }
+        .value { font-size: 24px; }
+        .input-group { margin: 10px 0; }
+        button { padding: 5px 10px; font-size: 16px; margin: 0 5px; }
+        input[type="number"] { width: 60px; font-size: 16px; padding: 2px; }
+    </style>
+</head>
+<body>
+    <h1>Thermostat Control</h1>
+    <div class="input-group">
+        <span>Temperature: </span><span class="value">%s °C</span><br>
+        <span>Setpoint: </span><span class="value">%s °C</span><br>
+        <span>Relay State: </span><span class="value">%s</span><br>
+        <span>Thermostat Running State: </span><span class="value">%s</span><br>
+        <span>Setpoint to set: </span><input type="number" id="setpoint" step="0.1" value="%s" onchange="update()" style="width: 60px;"> °C<br>
+        <span>High Hysteresis: </span><input type="number" id="high_hyst" step="0.1" value="%s" onchange="update()" style="width: 60px;"> °C<br>
+        <span>Low Hysteresis: </span><input type="number" id="low_hyst" step="0.1" value="%s" onchange="update()" style="width: 60px;"> °C<br>
+    </div>
+    <button onclick="update()">Update</button> <!-- Ajout du bouton Update -->
+    <script>
+        function update() {
+            var formData = new URLSearchParams();
+            formData.append('setpoint', document.getElementById('setpoint').value || 0.0);
+            formData.append('high_hyst', document.getElementById('high_hyst').value || 0.0);
+            formData.append('low_hyst', document.getElementById('low_hyst').value || 0.0);
+            fetch('/update', { method: 'POST', body: formData })
+                .then(response => response.text())
+                .then(data => console.log(data))
+                .catch(error => console.error('Error:', error));
+        }
+        function increment(id, step) {
+            var input = document.getElementById(id);
+            input.value = (parseFloat(input.value) + step).toFixed(1);
+            update();
+        }
+        function decrement(id, step) {
+            var input = document.getElementById(id);
+            input.value = (parseFloat(input.value) - step).toFixed(1);
+            update();
+        }
+    </script>
+</body>
+</html>

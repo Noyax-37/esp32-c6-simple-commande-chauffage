@@ -1,10 +1,12 @@
 # Name,   Type, SubType, Offset,  Size, Flags
 # Note: Offsets must be aligned to 0x10000 for app partitions, data to 0x1000
-
-nvs,        data, nvs,      0x9000,  0x6000,
-phy_init,   data, phy,      0xf000,  0x1000,
-zb_storage, data, fat,      0x10000, 0x10000,
-zb_fct,     data, fat,      0x20000, 0x0400,
-# Ajuster padding pour alignement à 0x1000
-padding,    data, undefined, 0x21000, 0x0f000,
-factory,    app,  factory,  0x30000, 0x200000,
+nvs,      data, nvs,     0x9000,  0x6000,
+spiffs,   data, spiffs,  0xf000,  0x10000,
+otadata,  data, ota,     0x1f000, 0x2000,
+# Ajouter un padding pour aligner app0
+padding1, data, undefined, 0x21000, 0xf000,
+app0,     app,  ota_0,   0x30000, 0x1E0000,
+phy_init, data, phy,     0x213000, 0x1000,
+zb_storage,data, fat,    0x214000, 0x10000,
+zb_fct,   data, fat,     0x224000, 0x0400,
+padding2, data, undefined, 0x225000, 0xDABC0,
