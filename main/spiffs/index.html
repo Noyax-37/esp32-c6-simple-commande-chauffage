@@ -13,32 +13,40 @@
         #update_status { color: blue; }
         #relay_mismatch { color: red; }
     </style>
+    <style>
+        .error-message {
+            color: red;
+            font-weight: bold;
+            display: none;
+        }
+    </style>
 </head>
 <body>
+    <div id="errorMessage" class="error-message"></div>
     <div class="container">
         <h1>Thermostat Control</h1>
         <div class="input-group">
-            <label>Temperature:</label> <span id="temperature">%.1f</span> °C
+            <label>Temperature:</label> <span id="temperature">N/A</span> °C
         </div>
         <div class="input-group">
-            <label>Setpoint:</label> <span id="setpoint">%.1f</span> °C
+            <label>Setpoint:</label> <span id="setpoint">N/A</span> °C
         </div>
         <div class="input-group">
-            <label>High Hysteresis:</label> <span id="high_hyst">%.1f</span> °C
+            <label>High Hysteresis:</label> <span id="high_hyst">N/A</span> °C
         </div>
         <div class="input-group">
-            <label>Low Hysteresis:</label> <span id="low_hyst">%.1f</span> °C
+            <label>Low Hysteresis:</label> <span id="low_hyst">N/A</span> °C
         </div>
         <div class="input-group">
             <label>Relay Actual:</label> 
-            <span id="relay_actual">%.s</span>
+            <span id="relay_actual">N/A</span>
             <label>Relay Commanded:</label> 
-            <span id="relay_commanded">%.s</span>
+            <span id="relay_commanded">N/A</span>
             <span id="relay_mismatch" style="display:none;">(Mismatch)</span>
         </div>
         <div id="update_status" style="color: blue;"></div>
         <div class="input-group">
-            <label>Running State:</label> <span id="running">%.s</span>
+            <label>Running State:</label> <span id="running">N/A</span>
         </div>
         <div class="input-group">
             <label>New Setpoint:</label>
@@ -56,78 +64,134 @@
             <button onclick="startUpdateLowHysteresis()">Update Low Hysteresis</button>
         </div>
 
-        <script>
-            let updateInterval = null;
+<script>
+    let updateInterval = null;
 
-            function fetchData() {
-                fetch('/data', { cache: 'no-store' }) // Forcer un rafraîchissement sans cache
-                    .then(response => response.json())
-                    .then(data => {
-                        document.getElementById('temperature').textContent = data.temperature;
-                        document.getElementById('setpoint').textContent = data.setpoint;
-                        document.getElementById('high_hyst').textContent = data.high_hyst || 'N/A';
-                        document.getElementById('low_hyst').textContent = data.low_hyst || 'N/A';
-                        document.getElementById('relay_actual').textContent = data.relay_actual;
-                        document.getElementById('relay_commanded').textContent = data.relay_commanded;
-                        document.getElementById('running').textContent = data.running;
-                        document.getElementById('update_status').textContent = data.update_status || '';
+    function fetchData() {
+        fetch('/data', { cache: 'no-store' })
+            .then(response => {
+                if (!response.ok) throw new Error('Network response was not ok ' + response.status);
+                return response.text();
+            })
+            .then(text => {
+                try {
+                    if (text.trim() === '') {
+                        return;
+                    }
+                    const data = JSON.parse(text);
+                    document.getElementById('temperature').textContent = data.temperature !== undefined && data.temperature !== '0.0' ? data.temperature : 'N/A';
+                    document.getElementById('setpoint').textContent = data.setpoint !== undefined && data.setpoint !== '0.0' ? data.setpoint : 'N/A';
+                    document.getElementById('high_hyst').textContent = data.high_hyst !== undefined && data.high_hyst !== '0.0' ? data.high_hyst : 'N/A';
+                    document.getElementById('low_hyst').textContent = data.low_hyst !== undefined && data.low_hyst !== '0.0' ? data.low_hyst : 'N/A';
+                    document.getElementById('relay_actual').textContent = data.relay_actual || 'N/A';
+                    document.getElementById('relay_commanded').textContent = data.relay_commanded || 'N/A';
+                    document.getElementById('running').textContent = data.running || 'N/A';
+                    document.getElementById('update_status').textContent = data.update_status || '';
 
-                        // Vérifier le mismatch et afficher en rouge si nécessaire
-                        const relayActual = document.getElementById('relay_actual');
-                        const relayCommanded = document.getElementById('relay_commanded');
-                        const mismatchSpan = document.getElementById('relay_mismatch');
-                        if (data.relay_actual !== "N/A" && data.relay_commanded !== "N/A" && 
-                            data.relay_actual !== data.relay_commanded) {
-                            mismatchSpan.style.display = "inline";
-                        } else {
-                            mismatchSpan.style.display = "none";
-                        }
+                    const relayActual = document.getElementById('relay_actual').textContent;
+                    const relayCommanded = document.getElementById('relay_commanded').textContent;
+                    const mismatchSpan = document.getElementById('relay_mismatch');
+                    if (relayActual !== 'N/A' && relayCommanded !== 'N/A' && relayActual !== relayCommanded) {
+                        mismatchSpan.style.display = 'inline';
+                    } else {
+                        mismatchSpan.style.display = 'none';
+                    }
 
-                        // Si update_status est vide et un intervalle est actif, le stopper
-                        if (!data.update_status && updateInterval) {
-                            clearInterval(updateInterval);
-                            updateInterval = null;
-                        }
-                    })
-                    .catch(error => console.error('Error:', error));
+                    if (!data.update_status && updateInterval) {
+                        clearInterval(updateInterval);
+                        updateInterval = null;
+                    }
+                } catch (e) {
+                    console.error('Invalid JSON:', text, e);
+                    document.getElementById('update_status').textContent = 'Error: Invalid data received in fetchData';
+                }
+            })
+            .catch(error => console.error('Error fetching data:', error));
+    }
+
+    function startUpdate(operation, value, urlParam) {
+        if (updateInterval) clearInterval(updateInterval);
+        updateInterval = setInterval(fetchData, 1000);
+
+        fetch('/update', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: `${urlParam}=${encodeURIComponent(value)}`
+        })
+        .then(response => {
+            if (!response.ok) throw new Error('Update failed ' + response.status);
+            return response.text();
+        })
+        .then(text => {
+            try {
+                const data = JSON.parse(text);
+                document.getElementById('temperature').textContent = data.temperature !== undefined && data.temperature !== '0.0' ? data.temperature : 'N/A';
+                document.getElementById('setpoint').textContent = data.setpoint !== undefined && data.setpoint !== '0.0' ? data.setpoint : 'N/A';
+                document.getElementById('high_hyst').textContent = data.high_hyst !== undefined && data.high_hyst !== '0.0' ? data.high_hyst : 'N/A';
+                document.getElementById('low_hyst').textContent = data.low_hyst !== undefined && data.low_hyst !== '0.0' ? data.low_hyst : 'N/A';
+                document.getElementById('relay_actual').textContent = data.relay_actual || 'N/A';
+                document.getElementById('relay_commanded').textContent = data.relay_commanded || 'N/A';
+                document.getElementById('running').textContent = data.running || 'N/A';
+                document.getElementById('update_status').textContent = data.update_status || '';
+
+                const relayActual = document.getElementById('relay_actual').textContent;
+                const relayCommanded = document.getElementById('relay_commanded').textContent;
+                const mismatchSpan = document.getElementById('relay_mismatch');
+                if (relayActual !== 'N/A' && relayCommanded !== 'N/A' && relayActual !== relayCommanded) {
+                    mismatchSpan.style.display = 'inline';
+                } else {
+                    mismatchSpan.style.display = 'none';
+                }
+            } catch (e) {
+                console.error('Invalid JSON from POST:', text, e);
+                document.getElementById('update_status').textContent = 'Error: Invalid data received in startUpdate';
             }
+        })
+        .catch(error => console.error('Error updating:', error));
+    }
 
-            function startUpdate(operation, value, urlParam) {
-                if (updateInterval) clearInterval(updateInterval); // Arrêter tout intervalle précédent
-                updateInterval = setInterval(fetchData, 1000); // Rafraîchir toutes les secondes
+    function checkZigbeeStatus() {
+        fetch('/status', { cache: 'no-store' })
+            .then(response => {
+                if (!response.ok) throw new Error('Network response was not ok ' + response.status);
+                return response.text();
+            })
+            .then(data => {
+                if (data.trim() === '') {
+                        return;
+                    }
+                console.log('Raw response:', data); // Ajout pour débogage
+                if (data.includes("5/5 pas encore aboutie") || data.includes("ZDO Device Unavailable")) {
+                    document.getElementById('errorMessage').style.display = 'block';
+                    document.getElementById('errorMessage').textContent = 'Erreur : dernière commande échouée après 5 tentatives ou problème Zigbee détecté !';
+                } else {
+                    if(data.includes("1/5 pas encore aboutie")) {
+                        document.getElementById('errorMessage').style.display = 'none';
+                    }
+                }
+            });
+    }
 
-                fetch('/update', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                    body: `${urlParam}=${encodeURIComponent(value)}`
-                })
-                .then(response => response.text())
-                .then(data => {
-                    console.log(data);
-                    fetchData(); // Forcer un rafraîchissement immédiat après la requête
-                })
-                .catch(error => console.error('Error:', error));
-            }
+    function startUpdateSetpoint() {
+        const setpoint = document.getElementById('new_setpoint').value;
+        startUpdate('setpoint', setpoint, 'setpoint');
+    }
 
-            function startUpdateSetpoint() {
-                const setpoint = document.getElementById('new_setpoint').value;
-                startUpdate('setpoint', setpoint, 'setpoint');
-            }
+    function startUpdateHighHysteresis() {
+        const high_hyst = document.getElementById('new_high_hyst').value;
+        startUpdate('high_hyst', high_hyst, 'high_hyst');
+    }
 
-            function startUpdateHighHysteresis() {
-                const high_hyst = document.getElementById('new_high_hyst').value;
-                startUpdate('high_hyst', high_hyst, 'high_hyst');
-            }
+    function startUpdateLowHysteresis() {
+        const low_hyst = document.getElementById('new_low_hyst').value;
+        startUpdate('low_hyst', low_hyst, 'low_hyst');
+    }
 
-            function startUpdateLowHysteresis() {
-                const low_hyst = document.getElementById('new_low_hyst').value;
-                startUpdate('low_hyst', low_hyst, 'low_hyst');
-            }
-
-            // Rafraîchir les données toutes les secondes
-            setInterval(fetchData, 1000);
-            fetchData(); // Chargement initial
-        </script>
+    fetchData();
+    setInterval(fetchData, 1000);
+    checkZigbeeStatus();
+    setInterval(checkZigbeeStatus, 5000);
+</script>
     </div>
 </body>
 </html>
