@@ -21,7 +21,7 @@
 </head>
 <body>
     <div class="container">
-        <h1>Thermostat Control</h1>
+        <h1>Thermostat Control V1.0</h1>
         <div id="errorMessage" class="error-message">
             <span id="errorMessageText"></span>
         </div>
@@ -161,8 +161,8 @@
                 if (!response.ok) {
                     throw new Error('Network response was not ok ' + response.status);
                     if (!updateInterval) {
-                            document.getElementById('errorMessageText').textContent = 'Problème réseau, vérifiez la connexion WIFI';
-                            document.getElementById('errorMessageText').style.display = 'block';
+                        document.getElementById('errorMessageText').textContent = 'Problème réseau, vérifiez la connexion WIFI';
+                        document.getElementById('errorMessageText').style.display = 'block';
                     }
                 }
                 return response.text();

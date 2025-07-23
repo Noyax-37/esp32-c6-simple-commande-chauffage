@@ -362,14 +362,14 @@ static void write_thermostat_attributes(int16_t new_setpoint, uint16_t new_high_
         TickType_t waiting_start = xTaskGetTickCount();
         TickType_t xFrequency = configTICK_RATE_HZ; // fréquence
         unsigned long total_time = RETRY_DELAY_MS / 1000;
-        unsigned long elapsed_time = RETRY_DELAY_MS / 1000;
+        unsigned long time_since_start = RETRY_DELAY_MS / 1000;
         unsigned long remaining_time = 0;
         while (write_in_progress && (xTaskGetTickCount() - wait_start) < (RETRY_DELAY_MS / portTICK_PERIOD_MS)) {
             xTaskDelayUntil( &waiting_start, xFrequency );
             if (update_status) {
                 char *temp_status;
-                elapsed_time = (waiting_start - wait_start) / xFrequency;
-                remaining_time = total_time >= elapsed_time ? elapsed_time : 0;
+                time_since_start = (waiting_start - wait_start) / xFrequency;
+                remaining_time = total_time >= time_since_start ? time_since_start : 0;
                 asprintf(&temp_status, "Commande lancée %d/%d attente de réponse (%lus/%lus))",  
                          current_write_attempt, MAX_WRITE_ATTEMPTS, remaining_time, total_time);
                 free(update_status);
