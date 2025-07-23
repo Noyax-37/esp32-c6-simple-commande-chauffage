@@ -44,6 +44,7 @@ uint16_t input_low_hyst = 10;
 uint8_t running_state = 3; // Nouvel état de fonctionnement du thermostat
 static uint8_t relay_actual_state = 0xFF; // 0xFF = inconnu, 0 = OFF, 1 = ON
 static char *update_status = NULL; // Pour afficher l'état d'avancement de la commande
+static char *status = NULL; // Pour afficher le status de la commande
 static int current_write_attempt = 0;
 static uint8_t last_command_sent = 0xFF;
 
@@ -105,6 +106,7 @@ void esp_zb_app_signal_handler(esp_zb_app_signal_t *signal_struct)
             if (update_status) {
                 free(update_status);
                 update_status = NULL;
+                status = "Échec de la mise à jour, périphérique indisponible";
             }
         }
         break;
@@ -322,11 +324,15 @@ static void write_thermostat_attributes(int16_t new_setpoint, uint16_t new_high_
         update_status = NULL;
     }
 
+    if (status) {
+        free(status);
+        status = NULL;
+    }
+
     while (write_attempts < MAX_WRITE_ATTEMPTS && write_in_progress) {
         current_write_attempt = write_attempts + 1;
-        asprintf(&update_status, "Commande lancée %d/%d pas encore aboutie (%lus/%lus)", 
-                 current_write_attempt, MAX_WRITE_ATTEMPTS, 
-                 (RETRY_DELAY_MS / 1000) - ((xTaskGetTickCount() - xTaskGetTickCount()) / 1000), RETRY_DELAY_MS / 1000);
+        asprintf(&update_status, "Commande lancée %d/%d", 
+                 current_write_attempt, MAX_WRITE_ATTEMPTS);
         ESP_LOGI(TAG, "Update status set to: %s", update_status);
 
         esp_zb_zcl_write_attr_cmd_t cmd = {
@@ -363,8 +369,8 @@ static void write_thermostat_attributes(int16_t new_setpoint, uint16_t new_high_
             if (update_status) {
                 char *temp_status;
                 elapsed_time = (waiting_start - wait_start) / xFrequency;
-                remaining_time = total_time > elapsed_time ? elapsed_time : 0;
-                asprintf(&temp_status, "Commande lancée %d/%d pas encore aboutie (%lus/%lus))",  
+                remaining_time = total_time >= elapsed_time ? elapsed_time : 0;
+                asprintf(&temp_status, "Commande lancée %d/%d attente de réponse (%lus/%lus))",  
                          current_write_attempt, MAX_WRITE_ATTEMPTS, remaining_time, total_time);
                 free(update_status);
                 update_status = temp_status;
@@ -373,11 +379,14 @@ static void write_thermostat_attributes(int16_t new_setpoint, uint16_t new_high_
         }
 
         write_attempts++;
-        if (!write_in_progress) break;
+        if (!write_in_progress) {
+            break;
+        }
     }
 
     if (write_attempts >= MAX_WRITE_ATTEMPTS) {
         ESP_LOGE(TAG, "Failed to write attributes after %d attempts", MAX_WRITE_ATTEMPTS);
+        asprintf(&status, "Dernière commande non aboutie après %d tentatives", MAX_WRITE_ATTEMPTS);
     }
 
     vTaskDelay(1000 / portTICK_PERIOD_MS);
@@ -553,21 +562,21 @@ static esp_err_t get_handler(httpd_req_t *req)
     long file_size = ftell(f);
     rewind(f);
     ESP_LOGI(TAG, "Index.html size: %ld bytes", file_size);
-    if (file_size > 10000) {
-        ESP_LOGE(TAG, "Index.html too large (%ld bytes), max is 10 000 bytes", file_size);
+    if (file_size > 20000) {
+        ESP_LOGE(TAG, "Index.html too large (%ld bytes), max is 20000 bytes", file_size);
         fclose(f);
         httpd_resp_send_500(req);
         return ESP_FAIL;
     }
 
-    char *response = (char *)calloc(10000, 1);
+    char *response = (char *)calloc(20000, 1);
     if (response == NULL) {
         ESP_LOGE(TAG, "Failed to allocate memory for response");
         fclose(f);
         httpd_resp_send_500(req);
         return ESP_FAIL;
     }
-    char *updated_response = (char *)calloc(10000, 1);
+    char *updated_response = (char *)calloc(20000, 1);
     if (updated_response == NULL) {
         ESP_LOGE(TAG, "Failed to allocate memory for updated_response");
         free(response);
@@ -576,7 +585,7 @@ static esp_err_t get_handler(httpd_req_t *req)
         return ESP_FAIL;
     }
 
-    size_t len = fread(response, 1, 10000, f);
+    size_t len = fread(response, 1, 20000, f);
     fclose(f);
     ESP_LOGI(TAG, "Read %u bytes from index.html", len);
 
@@ -588,7 +597,7 @@ static esp_err_t get_handler(httpd_req_t *req)
         return ESP_FAIL;
     }
     response[len] = '\0';
-    ESP_LOGI(TAG, "First 50 chars of response: %.*s", 50, response);
+    //ESP_LOGI(TAG, "First 50 chars of response: %.*s", 50, response);
     first_request = true; // Réinitialiser pour chaque rechargement de la page
 
     char temp_str[16], setpoint_str[16], high_hyst_str[16], low_hyst_str[16], relay_str[4], running_state_str[5];
@@ -601,10 +610,10 @@ static esp_err_t get_handler(httpd_req_t *req)
     ESP_LOGI(TAG, "String lengths: temp=%u, setpoint=%u, high_hyst=%u, low_hyst=%u, relay=%u, running=%u",
              strlen(temp_str), strlen(setpoint_str), strlen(high_hyst_str), strlen(low_hyst_str), strlen(relay_str), strlen(running_state_str));
 
-    int res_len = snprintf(updated_response, 10000,
+    int res_len = snprintf(updated_response, 20000,
                            response,
                            temp_str, setpoint_str, relay_str, running_state_str, setpoint_str, high_hyst_str, low_hyst_str);
-    if (res_len >= 10000) {
+    if (res_len >= 20000) {
         ESP_LOGE(TAG, "Buffer overflow in get_handler, response truncated, res_len=%d", res_len);
         free(response);
         free(updated_response);
@@ -758,7 +767,7 @@ static esp_err_t data_handler(httpd_req_t *req)
         return ESP_OK;
     }
 
-    ESP_LOGI(TAG, "Sending JSON response: %s", json_response);
+    //ESP_LOGI(TAG, "Sending JSON response: %s", json_response);
     httpd_resp_set_type(req, "application/json");
     httpd_resp_send(req, json_response, strlen(json_response));
     
@@ -779,15 +788,15 @@ static esp_err_t data_handler(httpd_req_t *req)
 static esp_err_t status_handler(httpd_req_t *req)
 {
     char *json_response = NULL;
-    int res_len = asprintf(&json_response, "{\"update_status\":\"%s\"}", update_status ? update_status : "");
+    int res_len = asprintf(&json_response, "{\"status\":\"%s\"}", status ? status : "");
     if (res_len < 0 || json_response == NULL) {
         ESP_LOGE(TAG, "Failed to allocate JSON response, sending default JSON");
         httpd_resp_set_type(req, "application/json");
-        httpd_resp_send(req, "{\"error\":\"Failed to generate JSON\",\"temperature\":\"0.0\",\"setpoint\":\"0.0\",\"high_hyst\":\"0.0\",\"low_hyst\":\"0.0\",\"relay_actual\":\"N/A\",\"relay_commanded\":\"N/A\",\"running\":\"N/A\",\"update_status\":\"\"}", 166);
+        httpd_resp_send(req, "{\"error\":\"Failed to generate JSON\",\"status\":\"\"}", 166);
         return ESP_OK;
     }
 
-    ESP_LOGI(TAG, "Sending JSON response to status: %s", json_response);
+    //ESP_LOGI(TAG, "Sending JSON response to status: %s", json_response);
     httpd_resp_set_type(req, "application/json");
     httpd_resp_send(req, json_response, strlen(json_response));
     

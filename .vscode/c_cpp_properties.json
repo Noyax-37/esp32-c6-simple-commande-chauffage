@@ -4,9 +4,10 @@
             "name": "Win32",
             "includePath": [
                 "${workspaceFolder}/**",
-                "C:\\Users\\alain\\esp-zigbee-sdk\\examples\\common",
-                "C:\\Users\\alain\\esp\\v5.4.2\\esp-idf\\components",
-                "C:\\Users\\alain\\esp-zigbee-sdk\\components"
+                "C:/Users/alain/esp-zigbee-sdk/examples/common",
+                "C:/Users/alain/esp/v5.4.2/esp-idf/components",
+                "C:/Users/alain/esp-zigbee-sdk/components",
+                "C:/Users/alain/esp/v5.4.2/esp-idf/components/esp_common/include"
             ],
             "defines": [
                 "_DEBUG",

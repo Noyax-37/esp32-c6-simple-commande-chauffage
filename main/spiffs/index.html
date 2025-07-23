@@ -7,38 +7,38 @@
         body { font-family: Arial, sans-serif; margin: 20px; }
         .container { max-width: 600px; margin: auto; }
         .input-group { margin: 10px 0; }
+        .error-message {
+            color: red;
+            font-weight: bold;
+            display: none; /* Restauré pour être contrôlé dynamiquement */
+        }
         label { display: inline-block; width: 150px; }
         input[type="number"] { padding: 5px; width: 100px; }
         button { padding: 5px 10px; margin: 5px 0; }
         #update_status { color: blue; }
         #relay_mismatch { color: red; }
     </style>
-    <style>
-        .error-message {
-            color: red;
-            font-weight: bold;
-            display: none;
-        }
-    </style>
 </head>
 <body>
-    <div id="errorMessage" class="error-message"></div>
     <div class="container">
         <h1>Thermostat Control</h1>
-        <div class="input-group">
-            <label>Temperature:</label> <span id="temperature">N/A</span> °C
+        <div id="errorMessage" class="error-message">
+            <span id="errorMessageText"></span>
         </div>
         <div class="input-group">
-            <label>Setpoint:</label> <span id="setpoint">N/A</span> °C
+            <label for="temperature">Temperature:</label> <span id="temperature">N/A</span> °C
         </div>
         <div class="input-group">
-            <label>High Hysteresis:</label> <span id="high_hyst">N/A</span> °C
+            <label for="setpoint">Setpoint:</label> <span id="setpoint">N/A</span> °C
         </div>
         <div class="input-group">
-            <label>Low Hysteresis:</label> <span id="low_hyst">N/A</span> °C
+            <label for="high_hyst">High Hysteresis:</label> <span id="high_hyst">N/A</span> °C
         </div>
         <div class="input-group">
-            <label>Relay Actual:</label> 
+            <label for="low_hyst">Low Hysteresis:</label> <span id="low_hyst">N/A</span> °C
+        </div>
+        <div class="input-group">
+            <label for="relay">Relay Actual:</label> 
             <span id="relay_actual">N/A</span>
             <label>Relay Commanded:</label> 
             <span id="relay_commanded">N/A</span>
@@ -46,26 +46,27 @@
         </div>
         <div id="update_status" style="color: blue;"></div>
         <div class="input-group">
-            <label>Running State:</label> <span id="running">N/A</span>
+            <label for="running">Running State:</label> <span id="running">N/A</span>
         </div>
         <div class="input-group">
-            <label>New Setpoint:</label>
+            <label for="new_setpoint">New Setpoint:</label>
             <input type="number" id="new_setpoint" step="0.1" value="19.0">
             <button onclick="startUpdateSetpoint()">Update Setpoint</button>
         </div>
         <div class="input-group">
-            <label>New High Hysteresis:</label>
+            <label for="new_high_hyst">New High Hysteresis:</label>
             <input type="number" id="new_high_hyst" step="0.1" value="0.1">
             <button onclick="startUpdateHighHysteresis()">Update High Hysteresis</button>
         </div>
         <div class="input-group">
-            <label>New Low Hysteresis:</label>
+            <label for="new_low_hyst">New Low Hysteresis:</label>
             <input type="number" id="new_low_hyst" step="0.1" value="0.1">
             <button onclick="startUpdateLowHysteresis()">Update Low Hysteresis</button>
         </div>
 
 <script>
     let updateInterval = null;
+    let updateIntervalStatus = null;
 
     function fetchData() {
         fetch('/data', { cache: 'no-store' })
@@ -75,9 +76,7 @@
             })
             .then(text => {
                 try {
-                    if (text.trim() === '') {
-                        return;
-                    }
+                    if (text.trim() === '') return;
                     const data = JSON.parse(text);
                     document.getElementById('temperature').textContent = data.temperature !== undefined && data.temperature !== '0.0' ? data.temperature : 'N/A';
                     document.getElementById('setpoint').textContent = data.setpoint !== undefined && data.setpoint !== '0.0' ? data.setpoint : 'N/A';
@@ -110,8 +109,14 @@
     }
 
     function startUpdate(operation, value, urlParam) {
-        if (updateInterval) clearInterval(updateInterval);
+        if (updateInterval) {
+            clearInterval(updateInterval);
+            clearInterval(updateIntervalStatus);
+        }
         updateInterval = setInterval(fetchData, 1000);
+
+        checkZigbeeStatus();
+        updateIntervalStatus = setInterval(checkZigbeeStatus, 1000);
 
         fetch('/update', {
             method: 'POST',
@@ -153,21 +158,54 @@
     function checkZigbeeStatus() {
         fetch('/status', { cache: 'no-store' })
             .then(response => {
-                if (!response.ok) throw new Error('Network response was not ok ' + response.status);
+                if (!response.ok) {
+                    throw new Error('Network response was not ok ' + response.status);
+                    if (!updateInterval) {
+                            document.getElementById('errorMessageText').textContent = 'Problème réseau, vérifiez la connexion WIFI';
+                            document.getElementById('errorMessageText').style.display = 'block';
+                    }
+                }
                 return response.text();
             })
-            .then(data => {
-                if (data.trim() === '') {
+            .then(text => {
+                try {
+                    const data = JSON.parse(text);
+                    const errorMessage = document.getElementById('errorMessage');
+                    const errorMessageText = document.getElementById('errorMessageText');
+                    if (!errorMessage || !errorMessageText) {
+                        console.error('Error message elements not found');
                         return;
                     }
-                console.log('Raw response:', data); // Ajout pour débogage
-                if (data.includes("5/5 pas encore aboutie") || data.includes("ZDO Device Unavailable")) {
-                    document.getElementById('errorMessage').style.display = 'block';
-                    document.getElementById('errorMessage').textContent = 'Erreur : dernière commande échouée après 5 tentatives ou problème Zigbee détecté !';
-                } else {
-                    if(data.includes("1/5 pas encore aboutie")) {
-                        document.getElementById('errorMessage').style.display = 'none';
+
+                    if (data.status && data.status.trim() !== '') {
+                        errorMessageText.textContent = data.status;
+                        errorMessage.style.display = 'block'; // Afficher si un message existe
+                    } else {
+                        errorMessageText.textContent = '';
+                        errorMessage.style.display = 'none'; // Cacher si pas de message
                     }
+
+                    if (!updateInterval) {
+                        clearInterval(updateIntervalStatus);
+                        updateIntervalStatus = null;
+                    }
+                } catch (e) {
+                    console.error('Invalid JSON from /status:', text, e);
+                    const errorMessage = document.getElementById('errorMessage');
+                    const errorMessageText = document.getElementById('errorMessageText');
+                    if (errorMessage && errorMessageText) {
+                        errorMessageText.textContent = 'Erreur: Données invalides reçues de /status';
+                        errorMessage.style.display = 'block';
+                    }
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching status:', error);
+                const errorMessage = document.getElementById('errorMessage');
+                const errorMessageText = document.getElementById('errorMessageText');
+                if (errorMessage && errorMessageText) {
+                    errorMessageText.textContent = 'Erreur réseau: Impossible de contacter /status';
+                    errorMessage.style.display = 'block';
                 }
             });
     }
@@ -188,9 +226,7 @@
     }
 
     fetchData();
-    setInterval(fetchData, 1000);
-    checkZigbeeStatus();
-    setInterval(checkZigbeeStatus, 5000);
+    setInterval(fetchData, 5000);
 </script>
     </div>
 </body>
