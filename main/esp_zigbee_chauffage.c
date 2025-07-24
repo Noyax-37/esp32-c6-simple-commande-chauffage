@@ -23,6 +23,8 @@
 #include "esp_vfs.h"
 #include "esp_spiffs.h"
 #include <stdlib.h> // Pour malloc et free
+#include "esp_task_wdt.h" // pour le watchdog
+
 
 static const char *TAG = "ESP_ZIGBEE_CHAUFFAGE";
 
@@ -921,4 +923,21 @@ void app_main(void)
     ESP_ERROR_CHECK(nvs_flash_init());
     ESP_ERROR_CHECK(esp_zb_platform_config(&config));
     wifi_init();
+    esp_task_wdt_config_t twdt_config = {
+        .timeout_ms = 5000,              // 5 secondes avant déclenchement
+        .idle_core_mask = (1 << 0),      // Surveille le cœur 0
+        .trigger_panic = true            // Déclenche un panic (redémarrage)
+    };
+    esp_task_wdt_init(&twdt_config);
+    esp_task_wdt_add(NULL); // NULL = tâche courante
+    while (1) {
+        static int watchdog_counter = 0;
+        watchdog_counter++;
+        if (watchdog_counter >= 10) { // Nourrir le chien toutes les 5 itérations
+            watchdog_counter = 0;
+            ESP_LOGI("WATCHDOG", "Je nourris le chien pour une 1eme fois !");
+        }
+        esp_task_wdt_reset();
+        vTaskDelay(pdMS_TO_TICKS(1000)); // Attente de 1s
+    }
 }
