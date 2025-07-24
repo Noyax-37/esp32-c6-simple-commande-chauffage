@@ -1,96 +1,113 @@
-| Supported Targets | ESP32-H2 | ESP32-C6 | ESP32-C5 |
-| ----------------- | -------- | -------- | -------- |
+README - Contrôle Thermostat Zigbee
+Description
+Ce projet implémente un contrôleur de thermostat basé sur une puce ESP32, utilisant le protocole Zigbee pour communiquer avec un thermostat et un relais. L'application permet de surveiller la température, ajuster le setpoint (point de consigne) et contrôler l'état du relais via une interface web accessible sur le réseau local.
+Prérequis
 
-# Light Switch Example 
+Matériel : Une carte ESP32 compatible avec le firmware ESP-ZB.
+Logiciel : Environnement de développement ESP-IDF installé.
+Réseau Zigbee : Un coordinateur Zigbee (par exemple, un dongle Zigbee connecté à un Raspberry Pi avec Zigbee2MQTT).
 
-This example demonstrates how to register a customized ZCL On/Off switch device with the Zigbee stack and implement the ZCL attribute reporting mechanism.
+Configuration Initiale
 
-## Hardware Required
+Configuration Zigbee :
 
-* One 802.15.4 enabled development board (e.g., ESP32-H2 or ESP32-C6) running this example.
-* A second board running as Zigbee coordinator (see [customized_server](../customized_server/) example)
+Avant de lancer le système, le réseau Zigbee doit être configuré via un outil comme Zigbee2MQTT.
+Ajoutez le thermostat (adresse : 0xD5AA) et le relais (adresse : 0xB377) au réseau Zigbee.
+Effectuez le binding entre l'ESP32 (endpoint 10) et les appareils Zigbee pour permettre la communication (voir les adresses IEEE dans esp_zigbee_chauffage.h).
+Une fois le binding effectué, l'ESP32 peut fonctionner en autonomie sans dépendre de Zigbee2MQTT.
 
-## Configure the project
 
-Before project configuration and build, make sure to set the correct chip target using `idf.py set-target TARGET` command.
+Configuration Wi-Fi :
 
-## Erase the NVRAM 
+Modifiez les constantes WIFI_SSID et WIFI_PASSWORD dans esp_zigbee_chauffage.h avec vos identifiants Wi-Fi.
+Les paramètres IP statiques sont définis (par exemple, 192.168.1.160). Ajustez-les si nécessaire dans le même fichier.
 
-Before flash it to the board, it is recommended to erase NVRAM if user doesn't want to keep the previous examples or other projects stored info 
-using `idf.py -p COM6 erase-flash`
 
-## Build and Flash
+Compilation et Téléversement :
 
-Build the project, flash it to the board, and start the monitor tool to view the serial output by running `idf.py -p COM6 flash monitor`.
+Compilez le projet avec idf.py build.
+Téléversez le firmware avec idf.py -p <PORT> flash.
+Téléversez le système de fichiers SPIFFS contenant index.html avec idf.py -p <PORT> spiffs upload.
 
-(To exit the serial monitor, type ``Ctrl-]``.)
 
-## Application Functions
 
-- When the program starts, the board will attempt to detect an available Zigbee network every **1 second** until one is found.
-```
-I (416) main_task: Returned from app_main()
-I (426) ESP_HA_ON_OFF_SWITCH: ZDO signal: ZDO Config Ready (0x17), status: ESP_FAIL
-I (1406) gpio: GPIO[9]| InputEn: 1| OutputEn: 0| OpenDrain: 0| Pullup: 1| Pulldown: 0| Intr:4 
-I (1406) ESP_HA_ON_OFF_SWITCH: Deferred driver initialization successful
-I (1406) ESP_HA_ON_OFF_SWITCH: Joined network successfully (Extended PAN ID: 74:4d:bd:ff:fe:63:de:c5, PAN ID: 0x46c5, Channel:13, Short Address: 0x5cf2)
-```
+Fonctionnement
 
-- If the board successfully joins a Zigbee network, it acts as a Zigbee end device, registers a `Customized` endpoint with the `On/Off Switch` function,
-  and then attempts to match an `On/Off Light` device on the network.
-```
-I (1446) ESP_HA_ON_OFF_SWITCH: Match desc response: status(0), address(0x0), endpoint(10)
-```
+Une fois démarré, l'ESP32 se connecte au réseau Wi-Fi et rejoint le réseau Zigbee.
+Une interface web est accessible à l'adresse IP statique (par défaut : 192.168.1.160).
+Fonctionnalités :
+Affichage en temps réel de la température, du setpoint, et de l'état du relais.
+Mise à jour du setpoint via l'interface web (bouton "Update Setpoint").
+Contrôle automatique du relais basé sur la température et le setpoint (avec hystérésis par défaut à 0.1°C si non configuré).
 
-- If the matching is successful, the board will send ZDO `Active Ep`, `Simple Desc`, `IEEE Addr`, and `Read Attr` requests to collect basic information
-  about the matched remote device.
-```
-I (1446) ESP_HA_ON_OFF_SWITCH: Match desc response: status(0), address(0x0), endpoint(10)
-I (1486) ESP_HA_ON_OFF_SWITCH: Active endpoint response: status(0) and endpoint count(2)
-I (1486) ESP_HA_ON_OFF_SWITCH: Endpoint ID List: 10
-I (1486) ESP_HA_ON_OFF_SWITCH: Endpoint ID List: 242
-I (1506) ESP_HA_ON_OFF_SWITCH: Simple desc response: status(0), device_id(256), app_version(0), profile_id(0x104), endpoint_ID(10)
-I (1506) ESP_HA_ON_OFF_SWITCH: Cluster ID list: 0x0
-I (1516) ESP_HA_ON_OFF_SWITCH: Cluster ID list: 0x3
-I (1516) ESP_HA_ON_OFF_SWITCH: Cluster ID list: 0x4
-I (1526) ESP_HA_ON_OFF_SWITCH: Cluster ID list: 0x5
-I (1526) ESP_HA_ON_OFF_SWITCH: Cluster ID list: 0x6
-I (1546) ESP_HA_ON_OFF_SWITCH: IEEE address: 74:4d:bd:ff:fe:63:de:c5
-I (1556) ESP_HA_ON_OFF_SWITCH: Read attribute response: status(0), cluster(0x6), attribute(0x0), type(0x10), value(0)
-```
 
-- After this, the board will send `Bind` and `Config Report` requests to the matched `On/Off Light` device, enabling the light to report its `On/Off`
-  attribute whenever it changes or when the maximum reporting interval is reached.
-```
-I (1596) ESP_HA_ON_OFF_SWITCH: Bind response from address(0x0), endpoint(1) with status(0)
-I (1626) ESP_HA_ON_OFF_SWITCH: Configure report response: status(0), cluster(0x6), attribute(0xffff)
-I (1636) ESP_HA_ON_OFF_SWITCH: Received report from address(0x0) src endpoint(10) to dst endpoint(1) cluster(0x6)
-I (1636) ESP_HA_ON_OFF_SWITCH: Received report information: attribute(0x0), type(0x10), value(0)
-```
+Les données sont mises à jour toutes les 5 secondes via des requêtes AJAX.
 
-- Pressing the `BOOT` button on the board will send an `On/Off toggle` command to control the remote `On/Off Light` device.
-```
-I (14686) ESP_HA_ON_OFF_SWITCH: Send 'on_off toggle' command to address(0x0) endpoint(10)
-W (14716) ESP_HA_ON_OFF_SWITCH: Receive Zigbee action(0x1005) callback
-I (14716) ESP_HA_ON_OFF_SWITCH: Received report from address(0x0) src endpoint(10) to dst endpoint(1) cluster(0x6)
-I (14716) ESP_HA_ON_OFF_SWITCH: Received report information: attribute(0x0), type(0x10), value(1)
+Limitations Actuelles
 
-I (15926) ESP_HA_ON_OFF_SWITCH: Send 'on_off toggle' command to address(0x0) endpoint(10)
-W (15956) ESP_HA_ON_OFF_SWITCH: Receive Zigbee action(0x1005) callback
-I (15956) ESP_HA_ON_OFF_SWITCH: Received report from address(0x0) src endpoint(10) to dst endpoint(1) cluster(0x6)
-I (15956) ESP_HA_ON_OFF_SWITCH: Received report information: attribute(0x0), type(0x10), value(0)
+Les attributs d'hystérésis (0x0101 et 0x0102) ne sont pas encore pris en charge par le thermostat. Cela peut nécessiter une vérification de la documentation du thermostat ou une mise à jour future du code.
 
-I (17696) ESP_HA_ON_OFF_SWITCH: Send 'on_off toggle' command to address(0x0) endpoint(10)
-W (17726) ESP_HA_ON_OFF_SWITCH: Receive Zigbee action(0x1005) callback
-I (17726) ESP_HA_ON_OFF_SWITCH: Received report from address(0x0) src endpoint(10) to dst endpoint(1) cluster(0x6)
-I (17726) ESP_HA_ON_OFF_SWITCH: Received report information: attribute(0x0), type(0x10), value(1)
+Dépannage
 
-I (20846) ESP_HA_ON_OFF_SWITCH: Send 'on_off toggle' command to address(0x0) endpoint(10)
-W (20876) ESP_HA_ON_OFF_SWITCH: Receive Zigbee action(0x1005) callback
-I (20876) ESP_HA_ON_OFF_SWITCH: Received report from address(0x0) src endpoint(10) to dst endpoint(1) cluster(0x6)
-I (20876) ESP_HA_ON_OFF_SWITCH: Received report information: attribute(0x0), type(0x10), value(0)
-```
+Consultez les logs via le moniteur série pour diagnostiquer les erreurs (connexion Wi-Fi, Zigbee, ou serveur web).
+Si le binding Zigbee échoue, vérifiez les adresses IEEE et réinitialisez les appareils.
 
-## Troubleshooting
+Contribution
+Des contributions sont bienvenues pour améliorer la gestion des hystérésis ou ajouter de nouvelles fonctionnalités. Contactez l'auteur pour plus d'informations.
 
-For any technical queries, please open an [issue](https://github.com/espressif/esp-zigbee-sdk/issues) on GitHub. We will get back to you soon.
+README - Zigbee Thermostat Control
+Description
+This project implements a thermostat controller based on an ESP32 chip, using the Zigbee protocol to communicate with a thermostat and a relay. The application allows monitoring temperature, adjusting the setpoint (target temperature), and controlling the relay state via a web interface accessible on the local network.
+Prerequisites
+
+Hardware : An ESP32 board compatible with the ESP-ZB firmware.
+Software : ESP-IDF development environment installed.
+Zigbee Network : A Zigbee coordinator (e.g., a Zigbee dongle connected to a Raspberry Pi with Zigbee2MQTT).
+
+Initial Setup
+
+Zigbee Configuration :
+
+Before running the system, the Zigbee network must be configured using a tool like Zigbee2MQTT.
+Add the thermostat (address: 0xD5AA) and the relay (address: 0xB377) to the Zigbee network.
+Perform the binding between the ESP32 (endpoint 10) and the Zigbee devices to enable communication (see IEEE addresses in esp_zigbee_chauffage.h).
+Once the binding is done, the ESP32 can operate autonomously without relying on Zigbee2MQTT.
+
+
+Wi-Fi Configuration :
+
+Update the WIFI_SSID and WIFI_PASSWORD constants in esp_zigbee_chauffage.h with your Wi-Fi credentials.
+Static IP settings are defined (e.g., 192.168.1.160). Adjust them if needed in the same file.
+
+
+Compilation and Flashing :
+
+Build the project with idf.py build.
+Flash the firmware with idf.py -p <PORT> flash.
+Upload the SPIFFS filesystem containing index.html with idf.py -p <PORT> spiffs upload.
+
+
+
+Operation
+
+Once started, the ESP32 connects to the Wi-Fi network and joins the Zigbee network.
+A web interface is accessible at the static IP address (default: 192.168.1.160).
+Features :
+Real-time display of temperature, setpoint, and relay state.
+Setpoint update via the web interface (using the "Update Setpoint" button).
+Automatic relay control based on temperature and setpoint (with a default hysteresis of 0.1°C if not configured).
+
+
+Data is refreshed every 5 seconds using AJAX requests.
+
+Current Limitations
+
+The hysteresis attributes (0x0101 and 0x0102) are not yet supported by the thermostat. This may require checking the thermostat documentation or a future code update.
+
+Troubleshooting
+
+Check logs via the serial monitor to diagnose issues (Wi-Fi connection, Zigbee, or web server).
+If Zigbee binding fails, verify the IEEE addresses and reset the devices.
+
+Contribution
+Contributions are welcome to improve hysteresis management or add new features. Contact the author for more information.
