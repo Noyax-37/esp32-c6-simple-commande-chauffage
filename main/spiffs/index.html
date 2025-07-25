@@ -1,8 +1,10 @@
 <!DOCTYPE html>
-<html>
+<html lang="'fr">
 <head>
-    <title>Thermostat Control</title>
     <meta charset="UTF-8">
+    <title>Thermostat Control</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <style>
         body { font-family: Arial, sans-serif; margin: 20px; }
         .container { max-width: 600px; margin: auto; }
@@ -17,6 +19,12 @@
         button { padding: 5px 10px; margin: 5px 0; }
         #update_status { color: blue; }
         #relay_mismatch { color: red; }
+    #relay_icon {
+      font-size: 2em;
+      margin-left: 10px;
+      transition: color 0.3s ease, transform 0.3s ease;
+    }
+    
     </style>
 </head>
 <body>
@@ -40,6 +48,10 @@
         <div class="input-group">
             <label for="relay">Relay Actual:</label> 
             <span id="relay_actual">N/A</span>
+            <span id="relay_mismatch" style="display:none;">(Mismatch)</span>
+            <p>État du chauffage :
+                <i id="relay_icon" class="fas fa-question-circle" style="color: orange; font-size: 2em; margin-left: 10px;"></i>
+            </p>
             <label>Relay Commanded:</label> 
             <span id="relay_commanded">N/A</span>
             <span id="relay_mismatch" style="display:none;">(Mismatch)</span>
@@ -229,5 +241,36 @@
     setInterval(fetchData, 5000);
 </script>
     </div>
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+    const relaySpan = document.getElementById("relay_actual");
+    const icon = document.getElementById("relay_icon");
+
+    function updateIcon(state) {
+        icon.classList.remove("pulse");
+
+        if (state === "ON") {
+        icon.className = "fas fa-fire pulse";
+        icon.style.color = "red";
+        } else if (state === "OFF") {
+        icon.className = "fas fa-fire";
+        icon.style.color = "gray";
+        } else {
+        icon.className = "fas fa-question-circle";
+        icon.style.color = "orange";
+        }
+    }
+
+    const observer = new MutationObserver(() => {
+        const state = relaySpan.textContent.trim();
+        updateIcon(state);
+    });
+
+    observer.observe(relaySpan, { childList: true, subtree: true });
+
+    // Mise à jour initiale
+    updateIcon(relaySpan.textContent.trim());
+    });
+</script>
 </body>
 </html>

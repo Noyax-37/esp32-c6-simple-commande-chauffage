@@ -54,6 +54,9 @@ static int s_retry_num = 0;
 static bool wifi_failed = false;
 static TaskHandle_t zb_task_handle = NULL;
 static bool first_request = true; // Indique si c'est la première requête
+static bool current_setpoint_update = false;
+static bool current_high_hyst_update = false;
+static bool current_low_hyst_update = false;
 
 // Variables pour la gestion des retries d'écriture
 static bool write_in_progress = false;
@@ -157,10 +160,10 @@ static void read_thermostat_attributes(void)
         },
         .address_mode = ESP_ZB_APS_ADDR_MODE_16_ENDP_PRESENT,
         .clusterID = ESP_ZB_ZCL_CLUSTER_ID_THERMOSTAT,
-        .manuf_specific = 0,
+        .manuf_specific = 1,
         .direction = ESP_ZB_ZCL_CMD_DIRECTION_TO_SRV,
         .dis_defalut_resp = 0,
-        .manuf_code = 0,
+        .manuf_code = 4209, // ASTREL_GROUP_SRL (Bitron)
         .attr_number = 4,
     };
 
@@ -204,13 +207,13 @@ static esp_err_t zb_attribute_reporting_handler(const esp_zb_zcl_report_attr_mes
             ESP_LOGI(TAG, "Thermostat 0x%04x Occupied Heating Setpoint: %d.%d °C", 
                      message->src_address.u.short_addr, 
                      last_setpoint / 100, abs(last_setpoint % 100));
-            if (write_in_progress && last_setpoint == target_setpoint) {
+            if (write_in_progress && current_setpoint_update && last_setpoint == target_setpoint) {
                 write_in_progress = false;
                 if (update_status) {
                     free(update_status);
                     update_status = NULL;
                 }
-                ESP_LOGI(TAG, "Write confirmed by attribute report, stopping retries");
+                ESP_LOGI(TAG, "Write confirmed by attribute report for setpoint, stopping retries");
             }
         } else if (message->attribute.id == 0x0101) {
             high_hysteresis = *(uint16_t *)message->attribute.data.value;
@@ -218,13 +221,13 @@ static esp_err_t zb_attribute_reporting_handler(const esp_zb_zcl_report_attr_mes
             ESP_LOGI(TAG, "Thermostat 0x%04x High Hysteresis: %d.%d °C", 
                      message->src_address.u.short_addr, 
                      high_hysteresis / 100, abs(high_hysteresis % 100));
-            if (write_in_progress && high_hysteresis == target_high_hyst) {
+            if (write_in_progress && current_high_hyst_update && high_hysteresis == target_high_hyst) {
                 write_in_progress = false;
                 if (update_status) {
                     free(update_status);
                     update_status = NULL;
                 }
-                ESP_LOGI(TAG, "Write confirmed by attribute report, stopping retries");
+                ESP_LOGI(TAG, "Write confirmed by attribute report for high hysteresis, stopping retries");
             }
         } else if (message->attribute.id == 0x0102) {
             low_hysteresis = *(uint16_t *)message->attribute.data.value;
@@ -232,13 +235,13 @@ static esp_err_t zb_attribute_reporting_handler(const esp_zb_zcl_report_attr_mes
             ESP_LOGI(TAG, "Thermostat 0x%04x Low Hysteresis: %d.%d °C", 
                      message->src_address.u.short_addr, 
                      low_hysteresis / 100, abs(low_hysteresis % 100));
-            if (write_in_progress && low_hysteresis == target_low_hyst) {
+            if (write_in_progress && current_low_hyst_update && low_hysteresis == target_low_hyst) {
                 write_in_progress = false;
                 if (update_status) {
                     free(update_status);
                     update_status = NULL;
                 }
-                ESP_LOGI(TAG, "Write confirmed by attribute report, stopping retries");
+                ESP_LOGI(TAG, "Write confirmed by attribute report for low hysteresis, stopping retries");
             }
         }
 
@@ -250,6 +253,7 @@ static esp_err_t zb_attribute_reporting_handler(const esp_zb_zcl_report_attr_mes
             }
         }
     }
+    
     if (message->src_address.u.short_addr == RELAY_CHAUFF && message->cluster == ESP_ZB_ZCL_CLUSTER_ID_ON_OFF) {
         if (message->attribute.id == ESP_ZB_ZCL_ATTR_ON_OFF_ON_OFF_ID) {
             relay_actual_state = (*(uint8_t *)message->attribute.data.value != 0) ? 1 : 0;
@@ -294,6 +298,10 @@ static void write_thermostat_attributes(int16_t new_setpoint, uint16_t new_high_
     target_high_hyst = new_high_hyst;
     target_low_hyst = new_low_hyst;
 
+    current_setpoint_update = setpoint_updated;
+    current_high_hyst_update = hysteresis_high_updated;
+    current_low_hyst_update = hysteresis_low_updated;
+
     int attr_count = 0;
     esp_zb_zcl_attribute_t attrs[3];
     if (setpoint_updated) {
@@ -333,8 +341,7 @@ static void write_thermostat_attributes(int16_t new_setpoint, uint16_t new_high_
 
     while (write_attempts < MAX_WRITE_ATTEMPTS && write_in_progress) {
         current_write_attempt = write_attempts + 1;
-        asprintf(&update_status, "Commande lancée %d/%d", 
-                 current_write_attempt, MAX_WRITE_ATTEMPTS);
+        asprintf(&update_status, "Commande lancée %d/%d", current_write_attempt, MAX_WRITE_ATTEMPTS);
         ESP_LOGI(TAG, "Update status set to: %s", update_status);
 
         esp_zb_zcl_write_attr_cmd_t cmd = {
@@ -344,17 +351,17 @@ static void write_thermostat_attributes(int16_t new_setpoint, uint16_t new_high_
                 .src_endpoint = HA_ONOFF_SWITCH_ENDPOINT,
             },
             .address_mode = ESP_ZB_APS_ADDR_MODE_16_ENDP_PRESENT,
-            .clusterID = ESP_ZB_ZCL_CLUSTER_ID_THERMOSTAT,
-            .manuf_specific = 0,
+            .manuf_specific = 1, // Activer le mode fabricant spécifique
             .direction = ESP_ZB_ZCL_CMD_DIRECTION_TO_SRV,
             .dis_defalut_resp = 0,
-            .manuf_code = 0,
+            .manuf_code = 4209, // Code fabricant pour ASTREL_GROUP_SRL
+            .clusterID = ESP_ZB_ZCL_CLUSTER_ID_THERMOSTAT, // Déplacer cluster_id ici
             .attr_number = attr_count,
+            .attr_field = attrs,
         };
-        cmd.attr_field = attrs;
 
-        ESP_LOGI(TAG, "Sending write request for %d attribute(s) (Attempt %d/%d)",
-                 attr_count, current_write_attempt, MAX_WRITE_ATTEMPTS);
+        ESP_LOGI(TAG, "Sending write request for %d attribute(s) (Attempt %d/%d) with manufacturerCode 0x%04x",
+                 attr_count, current_write_attempt, MAX_WRITE_ATTEMPTS, cmd.manuf_code);
 
         esp_zb_lock_acquire(portMAX_DELAY);
         esp_zb_zcl_write_attr_cmd_req(&cmd);
@@ -362,17 +369,17 @@ static void write_thermostat_attributes(int16_t new_setpoint, uint16_t new_high_
 
         TickType_t wait_start = xTaskGetTickCount();
         TickType_t waiting_start = xTaskGetTickCount();
-        TickType_t xFrequency = configTICK_RATE_HZ; // fréquence
+        TickType_t xFrequency = configTICK_RATE_HZ;
         unsigned long total_time = RETRY_DELAY_MS / 1000;
-        unsigned long time_since_start = RETRY_DELAY_MS / 1000;
+        unsigned long time_since_start = 0;
         unsigned long remaining_time = 0;
         while (write_in_progress && (xTaskGetTickCount() - wait_start) < (RETRY_DELAY_MS / portTICK_PERIOD_MS)) {
-            xTaskDelayUntil( &waiting_start, xFrequency );
+            xTaskDelayUntil(&waiting_start, xFrequency);
             if (update_status) {
                 char *temp_status;
                 time_since_start = (waiting_start - wait_start) / xFrequency;
-                remaining_time = total_time >= time_since_start ? time_since_start : 0;
-                asprintf(&temp_status, "Commande lancée %d/%d attente de réponse (%lus/%lus))",  
+                remaining_time = total_time >= time_since_start ? total_time - time_since_start : 0;
+                asprintf(&temp_status, "Commande lancée %d/%d attente de réponse (%lus/%lus)",
                          current_write_attempt, MAX_WRITE_ATTEMPTS, remaining_time, total_time);
                 free(update_status);
                 update_status = temp_status;
@@ -398,6 +405,9 @@ static void write_thermostat_attributes(int16_t new_setpoint, uint16_t new_high_
         update_status = NULL;
     }
     write_in_progress = false;
+    current_setpoint_update = false;
+    current_high_hyst_update = false;
+    current_low_hyst_update = false;
     ESP_LOGI(TAG, "Write process completed, write_in_progress reset to false");
 }
 
@@ -414,12 +424,17 @@ static esp_err_t zb_action_handler(esp_zb_core_action_callback_id_t callback_id,
         ESP_LOGI(TAG, "Received ZCL Default Response from address(0x%04x) endpoint(%d) cluster(0x%04x) command(0x%02x) status(0x%02x)",
                  resp->info.src_address.u.short_addr, resp->info.src_endpoint, resp->info.cluster, 
                  resp->resp_to_cmd, resp->status_code);
-        if (resp->info.src_address.u.short_addr == THERMOSTAT && resp->info.cluster == ESP_ZB_ZCL_CLUSTER_ID_THERMOSTAT && resp->status_code == 0) {
-            ESP_LOGI(TAG, "Write command to thermostat (0x%04x) succeeded", THERMOSTAT);
-            write_in_progress = false;
-            if (update_status) {
-                free(update_status);
-                update_status = NULL;
+        if (resp->info.src_address.u.short_addr == THERMOSTAT && resp->info.cluster == ESP_ZB_ZCL_CLUSTER_ID_THERMOSTAT) {
+            if (resp->status_code == 0) {
+                ESP_LOGI(TAG, "Write command to thermostat (0x%04x) succeeded", THERMOSTAT);
+                write_in_progress = false;
+                if (update_status) {
+                    free(update_status);
+                    update_status = NULL;
+                }
+            } else {
+                ESP_LOGE(TAG, "Write failed for thermostat (0x%04x), status: 0x%02x", THERMOSTAT, resp->status_code);
+                asprintf(&status, "Échec de l'écriture, statut: 0x%02x", resp->status_code);
             }
         } else if (resp->info.src_address.u.short_addr == RELAY_CHAUFF && resp->info.cluster == ESP_ZB_ZCL_CLUSTER_ID_ON_OFF) {
             ESP_LOGI(TAG, "Command %s (0x%02x) to Relay (0x%04x) %s",
@@ -908,14 +923,40 @@ static void esp_zb_task(void *pvParameters)
 
     ESP_ERROR_CHECK(esp_zb_start(true));
     ESP_LOGI(TAG, "Free heap size after Zigbee start: %lu bytes", esp_get_free_heap_size());
+    
     while (1) {
         esp_zb_stack_main_loop();
         vTaskDelay(50 / portTICK_PERIOD_MS);
     }
 }
 
-void app_main(void)
-{
+void watchdog_task(void *pvParameters) {
+    esp_task_wdt_config_t twdt_config = {
+        .timeout_ms = 5000,
+        .idle_core_mask = (1 << 0),
+        .trigger_panic = true
+    };
+    esp_task_wdt_init(&twdt_config);
+    esp_task_wdt_add(NULL);
+    int watchdog_counter = 0;
+    uint64_t total_seconds = 0;
+    while (1) {
+        watchdog_counter++;
+        total_seconds++;
+        if (watchdog_counter >= 100) {
+            int jours = total_seconds / 86400;
+            int heures = (total_seconds % 86400) / 3600;
+            int minutes = (total_seconds % 3600) / 60;
+            int secondes = total_seconds % 60;
+            watchdog_counter = 0;
+            ESP_LOGW("WATCHDOG", "Je nourris le chien depuis %dj %02dh %02dm %02ds", jours, heures, minutes, secondes);
+        }
+        esp_task_wdt_reset();
+        vTaskDelay(pdMS_TO_TICKS(1000));
+    }
+}
+
+void app_main(void) {
     esp_zb_platform_config_t config = {
         .radio_config = ESP_ZB_DEFAULT_RADIO_CONFIG(),
         .host_config = ESP_ZB_DEFAULT_HOST_CONFIG(),
@@ -923,21 +964,5 @@ void app_main(void)
     ESP_ERROR_CHECK(nvs_flash_init());
     ESP_ERROR_CHECK(esp_zb_platform_config(&config));
     wifi_init();
-    esp_task_wdt_config_t twdt_config = {
-        .timeout_ms = 5000,              // 5 secondes avant déclenchement
-        .idle_core_mask = (1 << 0),      // Surveille le cœur 0
-        .trigger_panic = true            // Déclenche un panic (redémarrage)
-    };
-    esp_task_wdt_init(&twdt_config);
-    esp_task_wdt_add(NULL); // NULL = tâche courante
-    while (1) {
-        static int watchdog_counter = 0;
-        watchdog_counter++;
-        if (watchdog_counter >= 10) { // Nourrir le chien toutes les 5 itérations
-            watchdog_counter = 0;
-            ESP_LOGI("WATCHDOG", "Je nourris le chien pour une 1eme fois !");
-        }
-        esp_task_wdt_reset();
-        vTaskDelay(pdMS_TO_TICKS(1000)); // Attente de 1s
-    }
+    xTaskCreate(watchdog_task, "watchdog_task", 2048, NULL, 1, NULL);
 }
